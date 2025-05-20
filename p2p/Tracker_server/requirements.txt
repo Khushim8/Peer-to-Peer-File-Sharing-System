@@ -1,0 +1,6 @@
+cryptography
+Flask
+Flask-SQLAlchemy
+mysqlclient
+pymysql
+

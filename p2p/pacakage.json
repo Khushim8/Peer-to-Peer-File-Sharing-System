@@ -1,0 +1,11 @@
+web3==6.9.0{
+    "name": "p2p-file-sharing-blockchain",
+    "version": "1.0.0",
+    "dependencies": {
+      "@truffle/hdwallet-provider": "^2.1.13",
+      "truffle": "^5.11.4"
+    }
+  }
+  
+  
+  

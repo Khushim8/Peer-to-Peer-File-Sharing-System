@@ -1,0 +1,57 @@
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: p2p_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+
+  tracker:
+    build: ./Tracker_server
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=mysql+pymysql://user:password@db:3306/p2p_db
+    command: sh -c "sleep 10 && python database.py && python app.py"
+
+  peer1:
+    build: ./peer_client
+    ports:
+      - "6001:6000"
+    depends_on:
+      - tracker
+    volumes:
+      - ./files1:/app/files
+      - ./build/contracts:/p2p/build/contracts  
+    environment:
+      - TRACKER_URL=http://tracker:5000
+    command: tail -f /dev/null
+
+  peer2:
+    build: ./peer_client
+    ports:
+      - "6002:6000"
+    depends_on:
+      - tracker
+    volumes:
+      - ./files2:/app/files
+      - ./build/contracts:/p2p/build/contracts 
+    environment:
+      - TRACKER_URL=http://tracker:5000
+    command: tail -f /dev/null
+
+  ganache:
+    image: trufflesuite/ganache-cli:latest
+    ports:
+      - "8545:8545"
+    command: --host 0.0.0.0 --deterministic --accounts 10 --gasLimit 6721975
+volumes:
+  db_data:
+

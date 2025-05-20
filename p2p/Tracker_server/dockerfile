@@ -1,0 +1,22 @@
+FROM python:3.9
+
+# Install MySQL client dependencies
+RUN apt-get update && apt-get install -y \
+    default-libmysqlclient-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set the working directory
+WORKDIR /app
+
+# Copy dependencies file
+COPY requirements.txt ./
+
+# Install Python packages
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy your source code
+COPY . .
+
+# Start the application (adjust as needed)
+CMD ["python", "app.py"]
