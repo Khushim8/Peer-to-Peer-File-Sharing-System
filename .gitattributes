@@ -1,0 +1,6 @@
+# Keep LF on every platform. Under Git for Windows' core.autocrlf=true these
+# would be checked out as CRLF, which breaks Dockerfile parsing (Semgrep) and
+# shell scripts, and makes local scans differ from CI.
+dockerfile text eol=lf
+Dockerfile text eol=lf
+*.sh       text eol=lf

@@ -1,0 +1,14 @@
+# Local security tooling and tests. Install into .venv:
+#   python -m venv .venv && .venv/Scripts/python -m pip install -r requirements-dev.txt
+semgrep==1.184.0
+pytest==9.2.0
+requests==2.34.2
+PyYAML==6.0.3
+
+# Tracker runtime deps for the smoke tests, mirroring p2p/Tracker_server/requirements.txt
+# (unpinned there too). mysqlclient is omitted: app.py uses PyMySQL via
+# pymysql.install_as_MySQLdb(), and mysqlclient needs a C toolchain on Windows.
+cryptography
+Flask
+Flask-SQLAlchemy
+pymysql
