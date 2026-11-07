@@ -81,7 +81,8 @@ class Finding:
     inferred: bool = False        # OSV inferred-transitive (not listed in the manifest)
     cwe: set = dataclasses.field(default_factory=set)
     cvss: float | None = None
-    fingerprint: str = ""
+    fingerprint: str = ""         # code:<hash> (snippet) or codeql:<hash>; see sarif_fingerprint()
+    occurrence: int = 0           # disambiguates identical code in the same file (assign_occurrences)
     reported_by: list = dataclasses.field(default_factory=list)
     epss: float | None = None
     epss_percentile: float | None = None
@@ -121,7 +122,8 @@ class Finding:
         if self.category in VULN_CATEGORIES:
             parts = ["vuln", self.ecosystem, norm_pkg(self.file_or_package), self.canonical_id]
         elif self.category == "sast" and self.fingerprint:
-            parts = ["sast", self.rule_class, self.file_or_package, self.fingerprint]
+            # Code-based, not line-based: editing code above a finding keeps its ID.
+            parts = ["sast", self.rule_class, self.file_or_package, self.fingerprint, self.occurrence]
         else:
             parts = list(self.dedup_key())
         return hashlib.sha1("|".join(map(str, parts)).encode()).hexdigest()[:12]
@@ -176,12 +178,22 @@ def load_json(path: Path):
 
 # ---------------------------------------------------------------- parsers
 
+def sarif_fingerprint(res: dict, loc: dict) -> str:
+    """Line-independent identity of the flagged code: hash of the matched snippet
+    (Semgrep includes it), else CodeQL's primaryLocationLineHash, else ""."""
+    snippet = loc.get("region", {}).get("snippet", {}).get("text", "")
+    if snippet.strip():
+        return "code:" + hashlib.sha1(" ".join(snippet.split()).encode()).hexdigest()[:16]
+    codeql = (res.get("partialFingerprints") or {}).get("primaryLocationLineHash", "")
+    return f"codeql:{codeql}" if codeql else ""
+
+
 def parse_sarif(data: dict, strip: list[str]) -> list[Finding]:
     out = []
     for run in data.get("runs", []):
         driver = run["tool"]["driver"]
         name = driver.get("name", "").lower()
-        tool = "codeql" if "codeql" in name else "semgrep" if "semgrep" in name else name or "sarif"
+        tool = next((t for t in ("codeql", "semgrep", "gitleaks") if t in name), name or "sarif")
         rules = {r["id"]: r for r in driver.get("rules", [])}
         for ext in run["tool"].get("extensions", []):
             rules.update({r["id"]: r for r in ext.get("rules", [])})
@@ -198,9 +210,13 @@ def parse_sarif(data: dict, strip: list[str]) -> list[Finding]:
             cwe = {int(m) for t in props.get("tags", []) for m in re.findall(r"\bCWE-(\d+)", t, re.I)}
             base = Path(path).name.lower()
             is_docker = base.startswith("dockerfile") or base.endswith(".dockerfile")
-            fp = (res.get("partialFingerprints") or {}).get("primaryLocationLineHash", "")
+            fp = sarif_fingerprint(res, loc)
+            if tool == "gitleaks":     # gitleaks-action writes SARIF
+                category, sev = "secret", "HIGH"
+            else:
+                category = "iac" if is_docker or res["ruleId"].startswith("dockerfile.") else "sast"
             out.append(Finding(
-                tool=tool, category="iac" if is_docker or res["ruleId"].startswith("dockerfile.") else "sast",
+                tool=tool, category=category,
                 rule_or_cve=res["ruleId"], severity=sev, file_or_package=path, line_or_version=line,
                 description=res.get("message", {}).get("text", "")[:300], cwe=cwe, fingerprint=fp,
             ))
@@ -360,7 +376,9 @@ def merge(group: list[Finding]) -> Finding:
                 lst.append(val)
         if g.tool not in f.reported_by:
             f.reported_by.append(g.tool)
-        f.fingerprint = f.fingerprint or g.fingerprint
+    # Prefer a snippet hash, then CodeQL's, so the ID does not depend on which tool came first.
+    f.fingerprint = min((g.fingerprint for g in group if g.fingerprint),
+                        key=lambda fp: (not fp.startswith("code:"), fp), default="")
     f.line_or_version = "; ".join(versions)
     f.fixed_version = "; ".join(fixes)
     f.inferred = all(g.inferred for g in group)
@@ -404,6 +422,18 @@ def deduplicate(findings: list[Finding]) -> list[Finding]:
             clusters[root(i)].append(f)
         merged += [merge(c) for c in clusters.values()]
     return merged
+
+
+def assign_occurrences(findings: list[Finding]) -> None:
+    """Number findings that would share an ID (same rule class, file and code) in line order."""
+    groups = defaultdict(list)
+    for f in findings:
+        groups[f.id].append(f)
+    for group in groups.values():
+        if len(group) > 1:
+            group.sort(key=lambda f: int(f.line_or_version.split(";")[0] or 0))
+            for i, f in enumerate(group):
+                f.occurrence = i
 
 
 # ---------------------------------------------------------------- enrichment
@@ -685,7 +715,7 @@ def main(argv=None) -> int:
                     help="previous findings.csv; findings not in it at the same or higher priority are 'new'")
     ap.add_argument("--cache-dir", type=Path, default=Path("security-reports/cache"))
     ap.add_argument("--offline", action="store_true", help="use cached EPSS/KEV only")
-    ap.add_argument("--strip-prefix", action="append", default=["/src"],
+    ap.add_argument("--strip-prefix", action="append", default=["/src", "/github/workspace"],
                     help="path prefix to remove from reported paths (repeatable; $GITHUB_WORKSPACE is added)")
     ap.add_argument("--app-path", action="append", default=None,
                     help="path prefix of shipped app code, for SAST reachability (default: p2p/)")
@@ -703,6 +733,7 @@ def main(argv=None) -> int:
 
     metrics = tool_metrics(raw)
     findings = deduplicate(raw)
+    assign_occurrences(findings)
     meta = enrich(findings, args.cache_dir, args.offline)
     notes = apply_triage(findings, decisions, dt.date.today())
     # A finding is "new" unless the comparison run already had it at the same or a

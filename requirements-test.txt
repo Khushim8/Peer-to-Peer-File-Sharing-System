@@ -1,0 +1,12 @@
+# Test and triage dependencies (CI pytest and triage jobs; also part of requirements-dev.txt).
+pytest==9.2.0
+requests==2.34.2
+PyYAML==6.0.3
+
+# Tracker runtime deps for the smoke tests, mirroring p2p/Tracker_server/requirements.txt
+# (unpinned there too). mysqlclient is omitted: app.py uses PyMySQL via
+# pymysql.install_as_MySQLdb(), and mysqlclient needs a C toolchain on Windows.
+cryptography
+Flask
+Flask-SQLAlchemy
+pymysql

@@ -1,0 +1,30 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directories:
+      - /p2p/Tracker_server
+      - /p2p/peer_client
+      - /p2p/blockchain_logger
+      - /p2p/peer_client/blockchain_logger
+    schedule:
+      interval: weekly
+
+  # The npm manifest is currently misnamed (p2p/pacakage.json) and invalid
+  # JSON, so Dependabot will report it cannot find package.json here until
+  # that is fixed in Phase 4.
+  - package-ecosystem: npm
+    directory: /p2p
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directories:
+      - /p2p/Tracker_server
+      - /p2p/peer_client
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

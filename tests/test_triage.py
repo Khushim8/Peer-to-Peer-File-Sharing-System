@@ -62,7 +62,7 @@ def test_codeql_sarif_rules_in_extensions():
     assert f.tool == "codeql"
     assert f.severity == "HIGH"              # from security-severity 7.5
     assert f.cwe == {22, 23}
-    assert f.fingerprint == "abc123:1"
+    assert f.fingerprint == "codeql:abc123:1"
 
 
 def test_osv_direct_vs_inferred_and_fixed_version():
@@ -170,6 +170,50 @@ def test_kev_lookup_is_exact_id_membership(tmp_path):
     triage.enrich([long_id, exact], tmp_path, offline=True)
     assert long_id.kev is False
     assert exact.kev is True
+
+
+def sarif(*results, tool="Semgrep OSS"):
+    """Minimal SARIF with one rule (CWE-22) and the given (uri, line, snippet) results."""
+    return {"runs": [{"tool": {"driver": {"name": tool, "rules": [
+        {"id": "r.path", "properties": {"tags": ["CWE-22: Path Traversal"]}}]}},
+        "results": [{"ruleId": "r.path", "level": "warning", "message": {"text": "m"},
+                     "locations": [{"physicalLocation": {"artifactLocation": {"uri": uri},
+                                                         "region": {"startLine": line, "snippet": {"text": code}}}}]}
+                    for uri, line, code in results]}]}
+
+
+def ids(report, strip=STRIP):
+    findings = triage.deduplicate(triage.parse_sarif(report, strip))
+    triage.assign_occurrences(findings)
+    return sorted(f.id for f in findings)
+
+
+def test_sast_id_survives_line_shift_but_not_code_change():
+    base = ids(sarif(("p2p/a.py", 13, "open(os.path.join(FILES_DIR, name))")))
+    assert ids(sarif(("p2p/a.py", 40, "open(os.path.join(FILES_DIR,  name))"))) == base   # moved, re-indented
+    assert ids(sarif(("p2p/a.py", 13, "open(safe_path(name))"))) != base                  # different code
+    assert ids(sarif(("p2p/b.py", 13, "open(os.path.join(FILES_DIR, name))"))) != base    # different file
+
+
+def test_ids_use_repo_relative_paths():
+    rel = ids(sarif(("p2p/a.py", 13, "x = 1")))
+    assert ids(sarif(("/github/workspace/p2p/a.py", 13, "x = 1")), ["/github/workspace"]) == rel
+    assert ids(sarif(("p2p\\a.py", 13, "x = 1"))) == rel
+
+
+def test_identical_code_twice_in_a_file_gets_distinct_ids():
+    found = ids(sarif(("p2p/a.py", 10, "open(name)"), ("p2p/a.py", 20, "open(name)")))
+    assert len(set(found)) == 2
+
+
+def test_gitleaks_sarif_is_a_secret():
+    [f] = triage.parse_sarif(sarif(("p2p/config.py", 4, "REDACTED"), tool="gitleaks"), STRIP)
+    assert (f.tool, f.category, f.severity) == ("gitleaks", "secret", "HIGH")
+
+
+def test_codeql_hash_used_when_no_snippet():
+    [f] = triage.parse_sarif(load("codeql.sarif"), STRIP)
+    assert f.fingerprint == "codeql:abc123:1"
 
 
 # ---------------------------------------------------------------- priority + triage

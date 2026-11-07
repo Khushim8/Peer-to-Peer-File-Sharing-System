@@ -1,6 +1,6 @@
 # Triage summary: baseline
 
-Generated 2026-11-06 22:08 UTC by `scripts/triage.py`. Formula: `docs/security/PRIORITIZATION.md`.
+Generated 2026-11-06 22:36 UTC by `scripts/triage.py`. Formula: `docs/security/PRIORITIZATION.md`.
 
 ## Vulnerabilities per tool (unique package + advisory pairs)
 

@@ -40,7 +40,16 @@ Findings from different tools merge into one finding with a `reported_by` list w
 - **IaC:** same rule class in the same file. Equivalent rules are mapped explicitly; for example, Semgrep `missing-user` and Trivy `DS-0002` are both `dockerfile-root-user`.
 - **Secrets:** same file and line.
 
-A finding's `id` is a hash of its identity (package and advisory, or rule class and location; SAST uses CodeQL's line-independent fingerprint where available). It is stable across runs, which is how `--compare-to` decides what is new.
+A finding's `id` is a hash of its identity, stable across runs and machines. That is how `--compare-to` decides what is new:
+
+| Category | ID built from |
+|---|---|
+| SCA, container | ecosystem + package name + canonical advisory (lowest CVE alias, else the advisory ID). No paths, versions or image names. |
+| SAST | rule class + repo-relative file + **code hash**: SHA-1 of the whitespace-normalized matched code (Semgrep's SARIF snippet), else CodeQL's `primaryLocationLineHash`, else the line number. Identical code twice in one file gets an occurrence index. Moving or re-indenting code keeps the ID; changing the flagged code makes a new one. |
+| IaC | rule class + repo-relative file (no line). |
+| Secret | repo-relative file + line (Gitleaks redacts the value, so there is no content to hash). |
+
+Paths are made repo-relative before hashing: backslashes become `/`, and the prefixes `/src` (the local OSV container), `/github/workspace` (Docker actions in CI) and `$GITHUB_WORKSPACE` are stripped.
 
 ## What the headline numbers count
 
@@ -61,11 +70,13 @@ The gate fails only on **new, open P1** findings. "New" is relative to a committ
 
 - CI runs `scripts/triage.py <reports> --compare-to security-reports/baseline/findings.csv`. That file is the triaged output of the baseline scan of `4ec80e1`, committed in the repo, so the known baseline P1s do not fail the first push of the workflow (push 1) or later runs.
 - A finding is new if its `id` is not in the comparison file **at the same or a higher priority**. A finding known only as P2 that becomes P1 (for example, its CVE is added to KEV) is new and fails the gate. So does any P1 from a scanner the baseline did not include (CodeQL's first findings arrive with push 1).
-- IDs depend only on package and advisory, or rule class and location, not on the scan environment, so a local baseline and CI scans compare directly.
+- IDs do not depend on the scan environment (see the table above), so a local baseline and CI scans compare directly.
+- **P1s caused by database updates are intentionally new.** If unchanged code gets a new P1 because the KEV catalog, EPSS scores or the vulnerability databases changed (a CVE added to KEV, an EPSS score crossing 0.1, a new advisory for an installed package), the gate fails. The risk is new even if the code is not. On a pull request this can fail a change that did not cause it; the scheduled weekly run exists so such failures usually show up on `main` first. They are handled by fixing, or by a recorded triage decision, never by refreshing the comparison file to make the gate pass.
 - The comparison file only changes deliberately: after Phase 4 fixes, the Phase 5 "after" `findings.csv` replaces it in a reviewed commit. Comparing against the target branch's latest findings is the alternative; it was not chosen because it needs artifacts from another workflow run and would quietly accept any P1 already merged to `main`.
 
 ## Known limitations
 
 - **`linux-libc-dev` kernel CVEs, including the 5 baseline P1s on KEV, are not exploitable through these containers.** `linux-libc-dev` contains only the Linux kernel's userspace API headers, used to compile programs: checked in the baseline tracker image (`linux-libc-dev 6.12.48-1`), every file it installs is a `.h` header under `/usr/include` or `/usr/lib/linux/uapi/<arch>/`, or documentation under `/usr/share`. It contains no kernel code. A container has no kernel of its own: it runs on the host's kernel, so a kernel CVE is exploitable only if the *host* kernel is vulnerable, whatever this package's version. The tracker image has the package only because the full `python:3.9` base installs compilers and headers. The findings are **not suppressed**: they are ranked by the formula like everything else, and they are fixed by updating or slimming the base image (Phase 4). The `python:3.9-slim` peer image does not contain the package.
 - **The CVSS ≥ 7 rule dominates container counts.** Most P2s in the baseline are base-image OS packages. The fixable/no-fix and origin columns exist so that this is visible rather than hidden.
-- **SAST IDs without a fingerprint use the line number,** so editing code above a finding can make it look new. This only matters for the gate if a SAST finding is P1, which the formula does not produce.
+- **SAST IDs fall back to the line number** only when a SARIF result has neither a snippet nor a CodeQL fingerprint. A finding that one tool identifies by snippet and another by CodeQL hash keeps the snippet-based ID when both report it. If only CodeQL reports it in one run and both tools in another, the ID differs. This only matters for the gate if a SAST finding is P1, which the formula does not produce.
+- **Secret IDs use the line number,** because the value is redacted.

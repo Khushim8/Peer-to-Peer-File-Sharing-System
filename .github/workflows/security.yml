@@ -1,0 +1,326 @@
+# SAST, SCA, secrets and container/IaC scanning, with a risk-based gate.
+#
+# Scope: every scanner targets the application under p2p/ only, so dev files
+# (requirements-dev.txt, requirements-test.txt, tests/, scripts/) are never
+# counted as app findings. Gitleaks is the exception: it scans git history.
+#
+# Gate: the triage job fails only on NEW P1 findings, compared with the
+# committed baseline security-reports/baseline/findings.csv
+# (see docs/security/PRIORITIZATION.md, "CI gate"). Scanner jobs themselves do
+# not fail on findings, except Gitleaks, which fails on any detected secret.
+#
+# Third-party actions are pinned to full commit SHAs (version in the comment).
+name: security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 6 * * 1"   # Mondays 06:17 UTC: catches new CVEs/KEV entries on unchanged code
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: pytest
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-test.txt
+      - run: pip install -r requirements-test.txt
+      - name: Run tests (xfail = known vulnerabilities awaiting a fix)
+        run: |
+          set -o pipefail
+          python -m pytest tests -rxX --junitxml=pytest.xml | tee pytest.log
+          { echo "### pytest"; echo; tail -n 1 pytest.log; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: pytest
+          path: pytest.xml
+
+  semgrep:
+    runs-on: ubuntu-24.04
+    container:
+      image: semgrep/semgrep:1.184.0@sha256:cc1b68266f267878b39739373ea9985b9a78e5d64497dd875c8de100b22695ed
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Semgrep (same rule packs as the local baseline)
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          semgrep scan --metrics=off --disable-version-check \
+            --config p/default --config p/python --config p/flask \
+            --config p/javascript --config p/dockerfile \
+            --sarif --output semgrep.sarif p2p
+      - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: scan-semgrep
+          path: semgrep.sarif
+
+  codeql:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, javascript-typescript]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          config-file: ./.github/codeql/codeql-config.yml
+      - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          category: /language:${{ matrix.language }}
+          output: codeql-out
+      - name: Collect SARIF for triage
+        run: |
+          mkdir -p codeql-sarif
+          for f in codeql-out/*.sarif; do cp "$f" "codeql-sarif/codeql-$(basename "$f")"; done
+          ls -l codeql-sarif
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: scan-codeql-${{ matrix.language }}
+          path: codeql-sarif/
+
+  osv-scanner:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Exit code 1 means "vulnerabilities found"; the gate is the triage job.
+      # The next step checks that the reports really were written.
+      - name: OSV-Scanner (JSON for triage)
+        uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+        continue-on-error: true
+        with:
+          scan-args: |-
+            --format=json
+            --output=osv.json
+            --recursive
+            ./p2p
+      - name: OSV-Scanner (SARIF for code scanning)
+        uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+        continue-on-error: true
+        with:
+          scan-args: |-
+            --format=sarif
+            --output=osv.sarif
+            --recursive
+            ./p2p
+      - name: Check reports were written
+        run: python3 -c "import json; json.load(open('osv.json')); json.load(open('osv.sarif'))"
+      - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: osv.sarif
+          category: osv-scanner
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: scan-osv
+          path: osv.json
+
+  gitleaks:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # On push and pull_request the action scans only the new commits; on
+      # schedule and workflow_dispatch it scans the full history. Any leak fails this job.
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_ENABLE_COMMENTS: false
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
+      - name: Rename report
+        if: always()
+        run: test -f results.sarif && mv results.sarif gitleaks.sarif
+      - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        if: always() && hashFiles('gitleaks.sarif') != ''
+        with:
+          sarif_file: gitleaks.sarif
+          category: gitleaks
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && hashFiles('gitleaks.sarif') != ''
+        with:
+          name: scan-gitleaks
+          path: gitleaks.sarif
+
+  trivy:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: mkdir -p reports sarif
+      - name: Trivy fs (JSON)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.76.2
+          scan-type: fs
+          scan-ref: p2p
+          scanners: vuln,secret,misconfig
+          format: json
+          output: reports/trivy-fs.json
+      - name: Trivy config (JSON)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          skip-setup-trivy: true
+          scan-type: config
+          scan-ref: p2p
+          format: json
+          output: reports/trivy-config.json
+      - name: Build images (base images pulled first so their layers can be recorded)
+        run: |
+          docker pull -q "$(awk 'toupper($1)=="FROM"{print $2; exit}' p2p/Tracker_server/dockerfile)"
+          docker pull -q "$(awk 'toupper($1)=="FROM"{print $2; exit}' p2p/peer_client/Dockerfile)"
+          docker build -q -t p2p-tracker:ci p2p/Tracker_server
+          docker build -q -t p2p-peer:ci p2p/peer_client
+          bash scripts/run-scans.sh base-images . reports ci
+          cat reports/base-images.json
+      - name: Trivy image tracker (JSON)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          skip-setup-trivy: true
+          scan-type: image
+          image-ref: p2p-tracker:ci
+          scanners: vuln,secret
+          format: json
+          output: reports/trivy-image-tracker.json
+      - name: Trivy image peer (JSON)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          skip-setup-trivy: true
+          scan-type: image
+          image-ref: p2p-peer:ci
+          scanners: vuln,secret
+          format: json
+          output: reports/trivy-image-peer.json
+      # SARIF for code scanning. Image results are limited to HIGH/CRITICAL there
+      # so the alert list stays usable; triage always uses the full JSON above.
+      - name: Trivy fs (SARIF)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          skip-setup-trivy: true
+          scan-type: fs
+          scan-ref: p2p
+          scanners: vuln,secret,misconfig
+          format: sarif
+          output: sarif/trivy-fs.sarif
+      - name: Trivy image tracker (SARIF, HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          skip-setup-trivy: true
+          scan-type: image
+          image-ref: p2p-tracker:ci
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          limit-severities-for-sarif: true
+          format: sarif
+          output: sarif/trivy-image-tracker.sarif
+      - name: Trivy image peer (SARIF, HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          skip-setup-trivy: true
+          scan-type: image
+          image-ref: p2p-peer:ci
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          limit-severities-for-sarif: true
+          format: sarif
+          output: sarif/trivy-image-peer.sarif
+      - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: sarif/trivy-fs.sarif
+          category: trivy-fs
+      - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: sarif/trivy-image-tracker.sarif
+          category: trivy-image-tracker
+      - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: sarif/trivy-image-peer.sarif
+          category: trivy-image-peer
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: scan-trivy
+          path: reports/
+
+  triage:
+    needs: [semgrep, codeql, osv-scanner, gitleaks, trivy]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-test.txt
+      - run: pip install -r requirements-test.txt
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: scan-*
+          path: reports
+          merge-multiple: true
+      # A missing report would silently lower the counts, so fail instead.
+      - name: Check every scanner produced a report
+        run: |
+          missing=0
+          for f in semgrep.sarif 'codeql-python*.sarif' 'codeql-javascript*.sarif' osv.json gitleaks.sarif \
+                   trivy-fs.json trivy-config.json trivy-image-tracker.json trivy-image-peer.json base-images.json; do
+            compgen -G "reports/$f" > /dev/null || { echo "::error::missing report: $f"; missing=1; }
+          done
+          ls -l reports
+          exit $missing
+      - name: Triage and gate (fails only on new P1)
+        run: python scripts/triage.py reports --out triage --compare-to security-reports/baseline/findings.csv
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: triage
+          path: triage/
