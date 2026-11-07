@@ -1,0 +1,1 @@
+{"img:test": {"dockerfile": "p2p/peer_client/Dockerfile", "base": "python:3.9-slim", "base_digest": "python@sha256:x", "base_diff_ids": ["sha256:base1"]}}

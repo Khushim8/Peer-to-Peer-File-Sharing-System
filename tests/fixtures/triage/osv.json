@@ -1,0 +1,20 @@
+{"results": [
+ {"source": {"path": "/src/p2p/peer_client/requirements.txt", "type": "lockfile"},
+  "packages": [{"package": {"name": "web3", "version": "6.9.0", "ecosystem": "PyPI"},
+    "groups": [{"ids": ["PYSEC-2099-1", "GHSA-aaaa-bbbb-cccc"], "aliases": ["CVE-2099-0001", "GHSA-aaaa-bbbb-cccc", "PYSEC-2099-1"], "max_severity": "7.2"}],
+    "vulnerabilities": [{"id": "PYSEC-2099-1", "summary": "web3 bug", "aliases": ["CVE-2099-0001"],
+      "affected": [{"package": {"name": "web3", "ecosystem": "PyPI"}, "ranges": [{"type": "ECOSYSTEM", "events": [{"introduced": "6.0.0b3"}, {"fixed": "7.15.0"}]}]}]}]}]},
+ {"source": {"path": "/src/p2p/peer_client/requirements.txt", "type": "unknown"},
+  "packages": [{"package": {"name": "aiohttp", "version": "3.9.5", "ecosystem": "PyPI"},
+    "groups": [{"ids": ["GHSA-dddd-eeee-ffff"], "aliases": ["CVE-2099-0002", "GHSA-dddd-eeee-ffff"], "max_severity": "9.8"},
+               {"ids": ["GHSA-gggg-hhhh-iiii"], "aliases": ["CVE-2099-0005", "GHSA-gggg-hhhh-iiii"], "max_severity": "5.3"}],
+    "vulnerabilities": [
+      {"id": "GHSA-dddd-eeee-ffff", "summary": "aiohttp smuggling", "affected": [{"package": {"name": "aiohttp", "ecosystem": "PyPI"},
+        "ranges": [{"type": "ECOSYSTEM", "events": [{"introduced": "0"}, {"fixed": "3.9.2"}, {"introduced": "3.9.4"}, {"fixed": "3.14.0"}]}]}]},
+      {"id": "GHSA-gggg-hhhh-iiii", "summary": "aiohttp old bug", "affected": [{"package": {"name": "aiohttp", "ecosystem": "PyPI"},
+        "ranges": [{"type": "ECOSYSTEM", "events": [{"introduced": "0"}, {"fixed": "3.10.0"}]}]}]}]}]},
+ {"source": {"path": "/src/p2p/blockchain_logger/requirements.txt", "type": "lockfile"},
+  "packages": [{"package": {"name": "web3", "version": "6.9.0", "ecosystem": "PyPI"},
+    "groups": [{"ids": ["PYSEC-2099-1", "GHSA-aaaa-bbbb-cccc"], "aliases": ["CVE-2099-0001"], "max_severity": "7.2"}],
+    "vulnerabilities": [{"id": "PYSEC-2099-1", "summary": "web3 bug", "affected": [{"package": {"name": "web3"}, "ranges": [{"events": [{"introduced": "0"}, {"fixed": "7.15.0"}]}]}]}]}]}
+]}

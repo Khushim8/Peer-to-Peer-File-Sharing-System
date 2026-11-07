@@ -4,6 +4,7 @@
 # Usage:
 #   scripts/run-scans.sh prepare-db                 # fetch Trivy DB, OSV offline DBs, Semgrep rule packs
 #   scripts/run-scans.sh scan <target-dir> <out-dir> <label>
+#   scripts/run-scans.sh base-images <target-dir> <out-dir> <label>   # only base-images.json
 #
 # <target-dir> must be a clean worktree of the commit being measured (e.g.
 # `git worktree add --detach ../baseline-4ec80e1 4ec80e1`), so dev files in this
@@ -78,6 +79,26 @@ record_versions() {
     } >> "$out/TOOL_VERSIONS.txt"
 }
 
+base_image_of() { awk 'toupper($1) == "FROM" { print $2; exit }' "$1"; }
+
+# Write <out>/base-images.json: for each scanned image, its Dockerfile's base
+# image, the base digest, and the base's layer diff IDs.
+record_base_images() {
+    local target="$1" out="$2" label="$3" img df base first=1
+    {
+        echo "{"
+        for pair in "p2p-tracker:$label=p2p/Tracker_server/dockerfile" "p2p-peer:$label=p2p/peer_client/Dockerfile"; do
+            img="${pair%%=*}"; df="${pair#*=}"; base="$(base_image_of "$target/$df")"
+            [ $first -eq 1 ] || echo ","; first=0
+            printf '  "%s": {"dockerfile": "%s", "base": "%s", "base_digest": "%s", "base_diff_ids": %s}' \
+                "$img" "$df" "$base" \
+                "$(docker image inspect "$base" --format '{{index .RepoDigests 0}}')" \
+                "$(docker image inspect "$base" --format '{{json .RootFS.Layers}}')"
+        done
+        printf '\n}\n'
+    } > "$out/base-images.json"
+}
+
 scan() {
     local target out label
     target="$(cd "$1" && pwd)"; out="$2"; label="$3"
@@ -136,8 +157,14 @@ scan() {
         --format json --output "$out/trivy-fs.json" .
     "${t[@]}" config --skip-check-update --format json --output "$out/trivy-config.json" .
 
+    # Pull each base image first so its layers can be recorded (BuildKit does
+    # not keep the base tagged locally); triage uses them to split base-image
+    # packages from what the Dockerfile adds.
+    docker pull -q "$(base_image_of p2p/Tracker_server/dockerfile)" > /dev/null
+    docker pull -q "$(base_image_of p2p/peer_client/Dockerfile)" > /dev/null
     docker build -q -t "p2p-tracker:$label" p2p/Tracker_server
     docker build -q -t "p2p-peer:$label" p2p/peer_client
+    record_base_images "$target" "$out" "$label"
     "${t[@]}" image --skip-db-update --skip-check-update --format json \
         --output "$out/trivy-image-tracker.json" "p2p-tracker:$label"
     "${t[@]}" image --skip-db-update --skip-check-update --format json \
@@ -151,5 +178,6 @@ scan() {
 case "${1:-}" in
     prepare-db) prepare_db ;;
     scan) scan "$2" "$3" "$4" ;;
+    base-images) record_base_images "$(cd "$2" && pwd)" "$3" "$4" ;;
     *) sed -n '2,12p' "$0"; exit 2 ;;
 esac

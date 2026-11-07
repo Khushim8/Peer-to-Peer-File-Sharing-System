@@ -1,0 +1,15 @@
+# Triage decisions applied by scripts/triage.py.
+#
+# Every entry needs a one-line `reason`. Wildcards in `rule_or_cve` are
+# rejected (no blanket ignores). Triaged findings stay in findings.csv with
+# their status; they are only left out of the "open" counts.
+#
+# decisions:
+#   - id: 1a2b3c4d5e6f            # finding id from findings.csv, or:
+#     rule_or_cve: CVE-2024-0001  # exact rule ID / advisory ID / alias
+#     file_or_package: p2p/*      # optional, fnmatch pattern
+#     status: false_positive      # false_positive | accepted_risk | confirmed_live (secrets: raises to P1)
+#     reason: "One line: why"
+#     expires: 2027-03-31         # optional; expired decisions are ignored and listed in summary.md
+
+decisions: []

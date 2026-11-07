@@ -1,0 +1,4 @@
+{"ArtifactName": ".", "ArtifactType": "repository", "Results": [{"Target": "p2p/peer_client/Dockerfile", "Class": "config", "Type": "dockerfile",
+ "Misconfigurations": [
+  {"ID": "DS-0002", "Title": "Image user should not be 'root'", "Severity": "HIGH", "Status": "FAIL", "CauseMetadata": {}},
+  {"ID": "DS-0026", "Title": "No HEALTHCHECK defined", "Severity": "LOW", "Status": "PASS", "CauseMetadata": {}}]}]}

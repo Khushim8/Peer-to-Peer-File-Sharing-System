@@ -14,3 +14,9 @@ Functional bugs found while running the unmodified app (commit `4ec80e1`, 2026-1
 - **Symptom:** Uploads and downloads print `Transaction logged. Hash: …` and `📦 Upload/Download logged on blockchain.`, but `eth_getCode` at the hardcoded address `0xCfEB869F69431e42cdB54A4F4f105C19C080A601` returns `0x`. No contract is deployed there, so `logFileShare` is never executed.
 - **Cause:** The contract address is hardcoded instead of read from the Truffle deployment, and `log_file_share` treats any mined transaction as success. A call to an address with no code succeeds as a plain transfer. Contract migrations cannot run as shipped either, because `p2p/pacakage.json` is misnamed and is not valid JSON.
 - **Planned fix:** read the address from the deployment (`build/contracts/FileShareLogger.json` `networks`) or from an environment variable; check at startup that code exists at that address; report a failure if the receipt has no `FileShared` event.
+
+## R3. Peer download protocol depends on TCP message boundaries
+
+- **Symptom:** A download can fail with `invalid literal for int() with base 10: '23\n<file bytes>'`.
+- **Cause:** The serving peer sends `FILE_FOUND`, then `"<size>\n"`, then the file, and the downloading peer reads each part with a separate `recv(1024)`. TCP is a byte stream, so several sends can arrive in one `recv`, and the header or size read then also contains the next part. Found while writing `tests/test_peer_path_traversal.py`, whose fake peer has to pause between sends to avoid it.
+- **Planned fix:** read the header and the size line up to a delimiter, buffering any extra bytes as the start of the file body.

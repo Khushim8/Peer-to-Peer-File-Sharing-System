@@ -1,0 +1,5 @@
+{"version": "2.1.0", "runs": [{"tool": {"driver": {"name": "CodeQL", "rules": []}, "extensions": [{"name": "codeql/python-queries", "rules": [
+  {"id": "py/path-injection", "properties": {"security-severity": "7.5", "tags": ["security", "external/cwe/cwe-022", "external/cwe/cwe-023"]}}]}]},
+  "results": [{"ruleId": "py/path-injection", "level": "error", "message": {"text": "Uncontrolled data used in path expression"},
+    "partialFingerprints": {"primaryLocationLineHash": "abc123:1"},
+    "locations": [{"physicalLocation": {"artifactLocation": {"uri": "p2p/peer_client/server.py"}, "region": {"startLine": 13}}}]}]}]}

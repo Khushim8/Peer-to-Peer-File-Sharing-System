@@ -1,0 +1,16 @@
+{"version": "2.1.0", "runs": [{"tool": {"driver": {"name": "Semgrep OSS", "rules": [
+  {"id": "dockerfile.security.missing-user.missing-user", "defaultConfiguration": {"level": "error"},
+   "properties": {"tags": ["CWE-269: Improper Privilege Management", "security"]}},
+  {"id": "python.lang.security.audit.path-traversal.open-user-path", "defaultConfiguration": {"level": "warning"},
+   "properties": {"tags": ["CWE-22: Path Traversal", "security"]}}]}},
+  "results": [
+  {"ruleId": "dockerfile.security.missing-user.missing-user", "message": {"text": "No USER"},
+   "fingerprints": {"matchBasedId/v1": "requires login"},
+   "locations": [{"physicalLocation": {"artifactLocation": {"uri": "p2p\\peer_client\\Dockerfile"}, "region": {"startLine": 15}}}]},
+  {"ruleId": "dockerfile.security.missing-user.missing-user", "message": {"text": "No USER"},
+   "locations": [{"physicalLocation": {"artifactLocation": {"uri": "p2p\\peer_client\\Dockerfile"}, "region": {"startLine": 16}}}]},
+  {"ruleId": "python.lang.security.audit.path-traversal.open-user-path", "message": {"text": "User path in open()"},
+   "locations": [{"physicalLocation": {"artifactLocation": {"uri": "p2p/peer_client/server.py"}, "region": {"startLine": 13}}}]},
+  {"ruleId": "python.lang.security.audit.path-traversal.open-user-path", "message": {"text": "User path in open()"},
+   "locations": [{"physicalLocation": {"artifactLocation": {"uri": "tools/helper.py"}, "region": {"startLine": 3}}}]}
+]}]}

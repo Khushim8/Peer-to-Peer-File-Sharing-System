@@ -90,10 +90,13 @@ Set up per `requirements-dev.txt`; exact versions are in `security-reports/basel
 - `scripts/run-scans.sh`: runs every local scan against a clean LF worktree of a given commit (see `security-reports/baseline/NOTES.md`).
 - Smoke tests: `.venv/Scripts/python -m pytest tests` (6 tests, in-memory SQLite via a test fixture; no app code changed). Baseline result: **6 passed**.
 
-## Unverified leads (not findings)
+## Leads from the earlier read-only review
 
-Carried from an earlier read-only review. Each will be reported only if a scanner or a test confirms it:
+No scanner in the baseline flagged these. The path issues were then **confirmed by manual tests** in `tests/test_peer_path_traversal.py`. Each attack test asserts the safe behaviour and is `xfail(strict=True, raises=AssertionError)` until fixed; control tests prove the harness serves and downloads normal files. In the report these are labelled **manual/custom rule**, not part of the tool baseline.
 
-- Path traversal in `peer_client/client.py` `handle_client` and `peer_client/server.py` `handle_client`: a socket-supplied name joined onto `/app/files`.
-- Arbitrary file write in `client.py` `download_file`: saves to `downloads/{file_name}`, and `file_name` comes from the tracker, where any client can register it.
-- Tracker has no authentication and no input validation (the missing-`peer_id` 500 above is confirmed; the rest is not yet).
+| Lead | Status |
+|---|---|
+| Path traversal: `peer_client/server.py` `handle_client` joins a socket-supplied name onto `FILES_DIR` | **Confirmed (manual test).** `../secret.txt` and an absolute path both return a file outside `FILES_DIR`. |
+| Path traversal: `peer_client/client.py` `PeerClient.handle_client` (same pattern) | **Confirmed (manual test)**, both variants. |
+| Arbitrary file write: `client.py` `download_file` saves to `downloads/{file_name}`, with `file_name` from the tracker, where any client can register it | **Confirmed (manual test).** A tracker-supplied `../escaped.txt` is written outside `downloads/`. |
+| Tracker has no authentication or input validation | Missing `peer_id` → HTTP 500 confirmed (baseline runtime check). No authentication on any endpoint, by inspection. Not tool-reported. |
