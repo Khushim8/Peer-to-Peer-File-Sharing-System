@@ -1,0 +1,55 @@
+  Scanning 27 files tracked by git with 1106 Code rules:
+  Language      Rules   Files          Origin      Rules                                                                
+  <multilang>      47      27          Community    1106                                                                
+  python          273       6                                                                                           
+  js              154       3                                                                                           
+  solidity         21       2                                                                                           
+  dockerfile        7       2                                                                                           
+  yaml             35       1                                                                                           
+  json              4       1                                                                                           
+Ran 537 rules on 27 files: 8 findings.
+Scanning dir /src
+Starting filesystem walk for root: /
+Scanned /src/p2p/blockchain_logger/requirements.txt file and found 1 package
+Scanned /src/p2p/peer_client/blockchain_logger/requirements.txt file and found 1 package
+Scanned /src/p2p/peer_client/requirements.txt file and found 2 packages
+Scanned /src/p2p/Tracker_server/requirements.txt file and found 5 packages
+End status: 16 dirs visited, 46 inodes visited, 4 Extract calls, 69.888629ms elapsed, 69.889ms wall time
+Filtered 5 local/unscannable package/s from the scan.
+Loaded PyPI local db from /osv-db/osv-scalibr/PyPI/all.zip
+12:51PM INF 1 commits scanned.
+12:51PM INF scanned ~309907 bytes (309.91 KB) in 1.05s
+12:51PM INF no leaks found
+2026-11-06T12:51:14-08:00	INFO	[vuln] Vulnerability scanning is enabled
+2026-11-06T12:51:14-08:00	INFO	[misconfig] Misconfiguration scanning is enabled
+2026-11-06T12:51:14-08:00	INFO	[checks-client] No downloadable checks were loaded as --skip-check-update is enabled, loading from existing cache...
+2026-11-06T12:51:15-08:00	INFO	[secret] Secret scanning is enabled
+2026-11-06T12:51:15-08:00	INFO	[secret] If your scanning is slow, please try '--scanners vuln,misconfig' to disable secret scanning
+2026-11-06T12:51:15-08:00	INFO	[secret] Please see https://trivy.dev/docs/v0.76/guide/scanner/secret#recommendation for faster secret detection
+2026-11-06T12:51:16-08:00	WARN	[pip] Unable to find python `site-packages` directory. License detection is skipped.	err="site-packages directory not found"
+2026-11-06T12:51:16-08:00	INFO	Number of language-specific files	num=3
+2026-11-06T12:51:16-08:00	INFO	[pip] Detecting vulnerabilities...
+2026-11-06T12:51:16-08:00	INFO	Detected config files	num=1
+2026-11-06T12:51:17-08:00	INFO	[misconfig] Misconfiguration scanning is enabled
+2026-11-06T12:51:17-08:00	INFO	[checks-client] No downloadable checks were loaded as --skip-check-update is enabled, loading from existing cache...
+2026-11-06T12:51:18-08:00	INFO	Detected config files	num=1
+sha256:7504915d58623a3cd422b0c97a8308ec6eb709b50c7d7c018d470d70feacd407
+sha256:45971c860e51346ae1455991b0c632e3a250fa2a19233a0e84e459a599e4853f
+2026-11-06T12:51:32-08:00	INFO	[vuln] Vulnerability scanning is enabled
+2026-11-06T12:51:32-08:00	INFO	[secret] Secret scanning is enabled
+2026-11-06T12:51:32-08:00	INFO	[secret] If your scanning is slow, please try '--scanners vuln' to disable secret scanning
+2026-11-06T12:51:32-08:00	INFO	[secret] Please see https://trivy.dev/docs/v0.76/guide/scanner/secret#recommendation for faster secret detection
+2026-11-06T12:51:32-08:00	INFO	Detected OS	family="debian" version="13.1"
+2026-11-06T12:51:32-08:00	INFO	[debian] Detecting vulnerabilities...	os_version="13" pkg_num=470
+2026-11-06T12:51:33-08:00	INFO	Number of language-specific files	num=1
+2026-11-06T12:51:33-08:00	INFO	[python-pkg] Detecting vulnerabilities...
+2026-11-06T12:51:33-08:00	WARN	Using severities from other vendors for some vulnerabilities. Read https://trivy.dev/docs/v0.76/guide/scanner/vulnerability#severity-selection for details.
+2026-11-06T12:51:36-08:00	INFO	[vuln] Vulnerability scanning is enabled
+2026-11-06T12:51:36-08:00	INFO	[secret] Secret scanning is enabled
+2026-11-06T12:51:36-08:00	INFO	[secret] If your scanning is slow, please try '--scanners vuln' to disable secret scanning
+2026-11-06T12:51:36-08:00	INFO	[secret] Please see https://trivy.dev/docs/v0.76/guide/scanner/secret#recommendation for faster secret detection
+2026-11-06T12:51:36-08:00	INFO	Detected OS	family="debian" version="13.1"
+2026-11-06T12:51:36-08:00	INFO	[debian] Detecting vulnerabilities...	os_version="13" pkg_num=87
+2026-11-06T12:51:36-08:00	INFO	Number of language-specific files	num=1
+2026-11-06T12:51:36-08:00	INFO	[python-pkg] Detecting vulnerabilities...
+2026-11-06T12:51:36-08:00	WARN	Using severities from other vendors for some vulnerabilities. Read https://trivy.dev/docs/v0.76/guide/scanner/vulnerability#severity-selection for details.
