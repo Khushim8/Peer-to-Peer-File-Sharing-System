@@ -12,4 +12,11 @@
 #     reason: "One line: why"
 #     expires: 2027-03-31         # optional; expired decisions are ignored and listed in summary.md
 
-decisions: []
+decisions:
+  # Also allowlisted in .gitleaks.toml (narrowly), so Gitleaks no longer reports
+  # it and this entry shows as "matched nothing" in summary.md. It is kept here
+  # as the recorded justification for that suppression.
+  - rule_or_cve: generic-api-key
+    file_or_package: security-reports/*/trivy-image-*.json*
+    status: false_positive
+    reason: "The GPG_KEY value (fingerprint E3FF 2839 C048 B25C 084D EBE9 B269 95E3 1025 0568) copied into Trivy image reports from the official python:3.9 images is the public OpenPGP fingerprint of the Python 3.8/3.9 release manager (python.org/downloads/metadata/pgp), not a credential. Flagged in CI run 42339552357."

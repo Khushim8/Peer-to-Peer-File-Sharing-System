@@ -29,11 +29,13 @@ The local before/after scans (`scripts/run-scans.sh`) are built for exact compar
 | Semgrep rules | dated snapshot of the packs (sha256 in `TOOL_VERSIONS.txt`) | live registry packs |
 | Vulnerability data | pinned Trivy DB and OSV offline DB | latest at run time |
 | Scan root | whole clean worktree (at `4ec80e1`: only `p2p/` and a README) | `p2p/` |
-| Gitleaks range | full history of the commit | new commits on push/PR; full history on schedule/dispatch |
+| Gitleaks range | full history of the commit (for the baseline: `4ec80e1`, the app only) | new commits on push/PR, **including this branch's own committed reports**; full history on schedule/dispatch |
 | OSV-Scanner | official v2.7.0 image, offline DB | official v2.7.0 action, live API |
 | Image SARIF in code scanning | n/a | HIGH and CRITICAL only (to keep the alert list usable); triage still uses the full JSON |
 
 Phase 5 before/after numbers come from the local method, not from CI.
+
+Because CI Gitleaks scans the pull request's commits, it also scans the committed scanner reports, which the local baseline never saw. The first CI run (42339552357) flagged 2 `generic-api-key` hits in `security-reports/baseline/trivy-image-peer.json`. Both were the official Python image's public release-signing key fingerprint (`ENV GPG_KEY=…`), copied in by Trivy. `.gitleaks.toml` allowlists exactly that pattern, only in Trivy image reports, and `.security/triage.yaml` records why. The allowlist was tested to still flag the same value in app code or in other reports, other key names in the same report, and non-fingerprint `GPG_KEY` values. These hits are not part of the Gitleaks baseline count (0), which covers the app at `4ec80e1`.
 
 ## Known gaps
 
