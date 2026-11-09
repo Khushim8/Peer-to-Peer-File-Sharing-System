@@ -49,7 +49,9 @@ A second allowlist entry covers only that rule, only lines that are exactly one 
 
 ### CodeQL in pull request runs
 
-On pull requests, CodeQL ran with `"incrementalMode": "diff-informed"`, which can limit path queries (such as `py/path-injection`) to code the pull request changes. A PR that does not touch `p2p/` can therefore miss findings that a full analysis would report, so a clean PR result is not proof of absence. The JavaScript extractor also fails on the invalid `p2p/pacakage.json`.
+On pull requests, CodeQL ran with `"incrementalMode": "diff-informed"`, which can limit path queries (such as `py/path-injection`) to code the pull request changes. A PR that does not touch `p2p/` can therefore miss findings that a full analysis would report, so a clean PR result is not proof of absence. The CodeQL before/after numbers therefore come from a full local analysis: `scripts/run-scans.sh codeql`, with the same CodeQL 2.27.4 bundle, `security-extended` suites and config as CI. The JavaScript extractor also fails on the invalid `p2p/pacakage.json`.
+
+**Coverage gap: socket input.** Even the full analysis does not flag the peer path traversal. CodeQL's Python models treat `flask.request`, `input()`, environment variables, command-line arguments and file reads as sources, but not `socket.recv()`, so the peer protocol's input is never tracked into `open()`. The traversal is covered by `tests/test_peer_path_traversal.py` and reported as manual (details: `security-reports/baseline/NOTES.md`).
 
 ## GitHub alert counts vs triage counts
 

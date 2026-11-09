@@ -1,6 +1,6 @@
 # Triage summary: baseline
 
-Generated 2026-11-09 17:35 UTC by `scripts/triage.py`. Formula: `docs/security/PRIORITIZATION.md`.
+Generated 2026-11-09 18:18 UTC by `scripts/triage.py`. Formula: `docs/security/PRIORITIZATION.md`.
 
 ## Vulnerabilities per tool (unique package + advisory pairs)
 
@@ -44,6 +44,7 @@ Deduplicated findings: 13709 (29 reported by more than one tool). Triaged out: 0
 ## Triage file notes
 
 - matched nothing: generic-api-key
+- matched nothing: sourcegraph-access-token
 
 ## New P1 findings
 

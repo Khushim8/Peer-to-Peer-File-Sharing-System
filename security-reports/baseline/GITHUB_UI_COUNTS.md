@@ -11,18 +11,12 @@ These numbers come from the GitHub web UI and from GitHub's `git push` response,
 | Packages | *not yet provided* | |
 | Manifest paths | *not yet provided* | Needed to confirm all 6 are under `p2p/`: `main` has no dev manifests, so they should be. |
 
-## Code-scanning alerts: PR #1 (`is:open pr:1`)
+## Code-scanning alerts: PR #1
 
-Read in the GitHub UI by the repo owner on 2026-11-09, before commit `f1a8cc8` was pushed. That covers the first workflow run, 42339552357, on PR head `8086522`.
+| Label | Open alerts | Source |
+|---|---|---|
+| **PR #1 UI count before run 2** | **3,062** | GitHub UI (`is:open pr:1`), read manually by the repo owner on 2026-11-09, before commit `f1a8cc8` was pushed. That covers the first workflow run, 42339552357, on PR head `8086522`. |
 
-| Tool | Open alerts |
-|---|---|
-| **Total** | **3,062** |
-| CodeQL | *not yet provided* (the run's SARIFs contain 1 result: see `NOTES.md`) |
-| Semgrep | *not yet provided* |
-| Gitleaks | *not yet provided* |
-| OSV-Scanner | *not yet provided* |
-| Trivy | *not yet provided* |
-| CodeQL path traversal | *not yet provided* (the run's SARIFs contain no `py/path-injection` result) |
+There is no per-tool breakdown: the second workflow run on PR #1 replaced the PR's alerts before one was read. **Per-tool baseline counts come from the saved reports in this folder** (`summary.md`, and `NOTES.md` for raw counts), not from GitHub's UI.
 
 Why this total differs from triage's counts: see `docs/security/PIPELINE.md`, "GitHub alert counts vs triage counts".

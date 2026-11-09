@@ -5,6 +5,7 @@
 #   scripts/run-scans.sh prepare-db                 # fetch Trivy DB, OSV offline DBs, Semgrep rule packs
 #   scripts/run-scans.sh scan <target-dir> <out-dir> <label>
 #   scripts/run-scans.sh base-images <target-dir> <out-dir> <label>   # only base-images.json
+#   scripts/run-scans.sh codeql <target-dir> <out-dir>                # full CodeQL (Docker)
 #
 # <target-dir> must be a clean worktree of the commit being measured (e.g.
 # `git worktree add --detach ../baseline-4ec80e1 4ec80e1`), so dev files in this
@@ -176,9 +177,34 @@ scan() {
     find "$out" -maxdepth 1 -name '*.json' -size +50M -exec gzip -n -9 {} \;
 }
 
+# Full (non-incremental) CodeQL analysis, same CLI and suite as CI. PR runs in CI
+# are diff-informed, so the before/after CodeQL numbers come from here.
+# Linux bundle in a container: the target is mounted at /src, so the SARIF has
+# no local paths. Bundle: tools/codeql-bundle-linux64-v2.27.4.tar.gz (sha256 in
+# TOOL_VERSIONS.txt), extracted once into the Docker volume codeql-2.27.4.
+CODEQL_IMAGE="python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b"
+codeql_full() {
+    local target out
+    target="$(cd "$1" && pwd)"; out="$2"; mkdir -p "$out"; out="$(cd "$out" && pwd)"
+    MSYS_NO_PATHCONV=1 docker run --rm -v codeql-2.27.4:/opt \
+        -v "$(native_path "$TOOLS"):/dl:ro" -v "$(native_path "$target"):/src:ro" \
+        -v "$(native_path "$REPO/.github/codeql"):/cfg:ro" -v "$(native_path "$out"):/out" \
+        "$CODEQL_IMAGE" sh -c '
+        set -e
+        [ -x /opt/codeql/codeql ] || tar xzf /dl/codeql-bundle-linux64-v2.27.4.tar.gz -C /opt
+        for L in python javascript; do
+            /opt/codeql/codeql database create /tmp/db-$L --language=$L --build-mode=none \
+                --source-root=/src --codescanning-config=/cfg/codeql-config.yml
+            /opt/codeql/codeql database analyze /tmp/db-$L \
+                codeql/$L-queries:codeql-suites/$L-security-extended.qls --format=sarif-latest \
+                --sarif-category=/language:$L --output=/out/codeql-$L-full.sarif --threads=0
+        done'
+}
+
 case "${1:-}" in
     prepare-db) prepare_db ;;
     scan) scan "$2" "$3" "$4" ;;
     base-images) record_base_images "$(cd "$2" && pwd)" "$3" "$4" ;;
-    *) sed -n '2,12p' "$0"; exit 2 ;;
+    codeql) codeql_full "$2" "$3" ;;
+    *) sed -n '2,15p' "$0"; exit 2 ;;
 esac
