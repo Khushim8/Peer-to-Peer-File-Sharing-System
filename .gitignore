@@ -1,0 +1,14 @@
+# Local tooling (see docs/security/STACK.md)
+.venv/
+tools/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Triage API cache
+security-reports/cache/
+
+# Downloaded CI artifacts (copied into security-reports/ as needed)
+ci-artifacts/

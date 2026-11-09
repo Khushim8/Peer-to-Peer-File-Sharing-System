@@ -2,3 +2,6 @@ requests==2.31.0
 web3==6.9.0
 
 
+# Temporary: web3 6.9.0 imports pkg_resources, which python:3.13-slim no longer
+# bundles and setuptools removed in 82.0.0. Remove when web3 is upgraded.
+setuptools==81.0.0

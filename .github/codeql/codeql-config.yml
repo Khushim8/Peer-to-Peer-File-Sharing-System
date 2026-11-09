@@ -1,0 +1,7 @@
+# CodeQL advanced setup (Default setup must be off in the repo settings).
+name: p2p application
+# Scan only the application, not tests/, scripts/ or other dev files.
+paths:
+  - p2p
+queries:
+  - uses: security-extended

@@ -1,0 +1,29 @@
+# Custom rule written after manual discovery of the peer path traversal
+# (tests/test_peer_path_traversal.py). Its results are reported separately
+# from the original tool baseline, which had no rule covering this.
+rules:
+  - id: p2p-socket-input-to-file-path
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    options:
+      # self.files[name_from_socket] looks up a locally registered path: the
+      # socket picks a key, it does not supply the path.
+      taint_assume_safe_indexes: true
+    message: >-
+      Data received from a socket reaches a filesystem path without passing
+      through resolve_inside(). A remote peer can make this process read or
+      write files outside the intended directory (path traversal).
+    metadata:
+      category: security
+      cwe:
+        - "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      confidence: MEDIUM
+      origin: custom rule written after manual discovery
+    pattern-sources:
+      - pattern: $SOCK.recv(...)
+    pattern-sanitizers:
+      - pattern: resolve_inside(...)
+    pattern-sinks:
+      - pattern: os.path.join(...)
+      - pattern: open(...)

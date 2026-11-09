@@ -2,6 +2,8 @@ import socket
 import threading
 import os
 
+from safe_paths import resolve_inside
+
 # Folder where uploaded files are stored
 FILES_DIR = "/app/files"
 
@@ -10,9 +12,9 @@ def handle_client(conn, addr):
     try:
         file_hash = conn.recv(1024).decode().strip()
         print(f"[>] Request for file hash: {file_hash}")
-        file_path = os.path.join(FILES_DIR, file_hash)
+        file_path = resolve_inside(FILES_DIR, file_hash)
 
-        if not os.path.exists(file_path):
+        if file_path is None or not os.path.isfile(file_path):
             print("[!] File not found")
             conn.sendall(b"FILE_NOT_FOUND")
         else:

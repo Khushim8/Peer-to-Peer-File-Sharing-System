@@ -1,0 +1,27 @@
+# Triage decisions applied by scripts/triage.py.
+#
+# Every entry needs a one-line `reason`. Wildcards in `rule_or_cve` are
+# rejected (no blanket ignores). Triaged findings stay in findings.csv with
+# their status; they are only left out of the "open" counts.
+#
+# decisions:
+#   - id: 1a2b3c4d5e6f            # finding id from findings.csv, or:
+#     rule_or_cve: CVE-2024-0001  # exact rule ID / advisory ID / alias
+#     file_or_package: p2p/*      # optional, fnmatch pattern
+#     status: false_positive      # false_positive | accepted_risk | confirmed_live (secrets: raises to P1)
+#     reason: "One line: why"
+#     expires: 2027-03-31         # optional; expired decisions are ignored and listed in summary.md
+
+decisions:
+  # Also allowlisted in .gitleaks.toml (narrowly), so Gitleaks no longer reports
+  # it and this entry shows as "matched nothing" in summary.md. It is kept here
+  # as the recorded justification for that suppression.
+  - rule_or_cve: generic-api-key
+    file_or_package: security-reports/*/trivy-image-*.json*
+    status: false_positive
+    reason: "The GPG_KEY value (fingerprint E3FF 2839 C048 B25C 084D EBE9 B269 95E3 1025 0568) copied into Trivy image reports from the official python:3.9 images is the public OpenPGP fingerprint of the Python 3.8/3.9 release manager (python.org/downloads/metadata/pgp), not a credential. Flagged in CI run 42339552357."
+  # Also allowlisted in .gitleaks.toml (narrowly); kept here as the justification.
+  - rule_or_cve: sourcegraph-access-token
+    file_or_package: security-reports/*/trivy-image-*.json*
+    status: false_positive
+    reason: "Lines that are exactly a public kernel commit URL (git.kernel.org/stable/c/<sha> or /linus/<sha>) in Trivy's CVE references; the 40-hex git commit ID matches the rule. 51 hits, all such URLs, inside the gzipped tracker report once archive scanning was enabled (2026-11-09)."

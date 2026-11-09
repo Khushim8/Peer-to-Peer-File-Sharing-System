@@ -1,0 +1,41 @@
+# Gitleaks config: the default rules plus one narrow allowlist.
+# Used by CI (GITLEAKS_CONFIG in .github/workflows/security.yml) and picked up
+# automatically by `gitleaks git` when scanning a checkout of this repo.
+
+[extend]
+useDefault = true
+
+# False positive: Trivy image reports copy the image's Dockerfile history and
+# environment, which include the official Python image's
+#   ENV GPG_KEY set to the fingerprint E3FF 2839 C048 B25C 084D EBE9 B269 95E3 1025 0568
+# That is the public OpenPGP fingerprint of the Python 3.8/3.9 release manager
+# (Łukasz Langa, listed on python.org/downloads/metadata/pgp), used to verify the
+# Python source tarball. It is not a credential.
+# Narrow on purpose: only generic-api-key, only a 40-hex-digit value after
+# GPG_KEY=, and only in Trivy image reports under security-reports/.
+# Recorded in .security/triage.yaml.
+[[allowlists]]
+description = "Public Python release-signing key fingerprint in Trivy image reports"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^security-reports/[^/]+/trivy-image-[^/]+\.json(\.gz)?$''']
+regexTarget = "match"
+regexes = ['''GPG_KEY=[0-9A-F]{40}\b''']
+
+# False positive: Trivy image reports list each CVE's references, and kernel
+# CVEs reference public commits as https://git.kernel.org/stable/c/<sha> or
+# https://git.kernel.org/linus/<sha>. The 40-hex git commit ID matches
+# sourcegraph-access-token. Seen only inside the gzipped tracker report once
+# archive scanning (--max-archive-depth) was enabled: 51 hits, all such URLs.
+# Gitleaks percent-decodes before matching, so the optional " (7.3-rc1)" suffix
+# is accepted encoded or decoded.
+# Narrow on purpose: only sourcegraph-access-token, only a line that is exactly
+# one such URL, and only in Trivy image reports under security-reports/.
+# Recorded in .security/triage.yaml.
+[[allowlists]]
+description = "Public kernel git commit URLs in Trivy image reports"
+targetRules = ["sourcegraph-access-token"]
+condition = "AND"
+paths = ['''^security-reports/[^/]+/trivy-image-[^/]+\.json(\.gz)?$''']
+regexTarget = "line"
+regexes = ['''^\s*"https://git\.kernel\.org/(stable/c|linus)/[0-9a-f]{40}((%20| )(%28|\()[0-9.]+(-rc[0-9]+)?(%29|\)))?",?\s*$''']

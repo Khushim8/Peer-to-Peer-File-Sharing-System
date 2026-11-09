@@ -1,0 +1,51 @@
+# Tool versions for the baseline ("before") scan
+# Recorded: 2026-11-06T19:56:47Z
+# Host: Windows 11 Enterprise 10.0.26200, x64
+
+semgrep        1.184.0   (pip, .venv; requirements-dev.txt)
+osv-scanner    2.7.0     (osv-scalibr 0.5.3, commit bfe2f84abd2f09fe0b83ba7f6dad40d296762f40; osv-scanner_windows_amd64.exe, SHA256 verified against osv-scanner_SHA256SUMS)
+gitleaks       8.30.1    (gitleaks_8.30.1_windows_x64.zip, SHA256 verified against gitleaks_8.30.1_checksums.txt)
+trivy          0.76.2    (trivy_0.76.2_windows-64bit.zip, SHA256 verified against trivy_0.76.2_checksums.txt)
+
+python         3.12.9
+docker engine  29.9.2
+docker compose 5.6.1
+git            2.55.0.windows.5
+
+# Vulnerability DB versions (Trivy DB, OSV data) are time-dependent and are
+# appended below at the time each baseline scan runs.
+
+# ---- Scan: baseline ----
+scan date (UTC)   2026-11-06T20:49:36Z
+target commit     4ec80e1a19978300ff4bd9d07f5a6f7118369e00
+osv-scanner run   ghcr.io/google/osv-scanner:v2.7.0@sha256:4f3b7e2c64b9d38a5febc5a7e4a3dfef1d1362f726dea7a2ef4762b46469fcd0
+
+## Semgrep rule packs (snapshot used via --config <file>; fetched 2026-11-06T20:11:05Z)
+p/default      sha256 5e98741916167b80b5f002b1d84069908b56da2cc82d68efd72bb10baf8d27cb  rules 1073
+p/python       sha256 de5bc79d074c3b4146338a0bf95830406f169bd91ac590a2f1ef111f162e23f5  rules 151
+p/flask        sha256 ac5990410d39cdb9f172ae2a0510051cac2b06f7d0aab3d51648aa4f9180f1e1  rules 18
+p/javascript   sha256 1bcb61b57b5c9ee521d5e1db2d80062fe90b64fc788650564dc1f1c5243419c2  rules 74
+p/dockerfile   sha256 57b022a471f9bbfdd80dc93ad9519e4258a4583a535587064e3312dcdea75e85  rules 7
+
+## Trivy DBs
+Version: 0.76.2
+Vulnerability DB:
+  Version: 2
+  UpdatedAt: 2026-11-06 18:59:52.855177206 +0000 UTC
+  NextUpdate: 2026-11-07 18:59:52.855177045 +0000 UTC
+  DownloadedAt: 2026-11-06 20:11:19.9559813 +0000 UTC
+Check Bundle:
+  Digest: sha256:b591e9190cff4aa4e385b1a25bccfd9ecf178d3c77fd194e1410b7ce7e1df058
+  DownloadedAt: 2026-11-06 20:11:25.0394261 +0000 UTC
+
+## OSV offline databases (osv-vulnerabilities.storage.googleapis.com/<ecosystem>/all.zip)
+PyPI       sha256 20cc1e26c8c857e668beff35828ba0ba6077283ecb5a6832893ac6184fe4a4b5  size 37648434  downloaded 2026-11-06T20:11:30Z
+
+# ---- CodeQL full analysis (scripts/run-scans.sh codeql), added 2026-11-09 ----
+target commit     4ec80e1a19978300ff4bd9d07f5a6f7118369e00
+codeql            2.27.4 (codeql-bundle-v2.27.4, linux64; same bundle as CI's pinned codeql-action v4.39.3)
+bundle sha256     89ed56c8ec6bfccef6a0d2e7fe86da0469ca24b4db08b88016ec134b942c17a4 (matches GitHub's published asset digest)
+query packs       codeql/python-queries 1.9.0, codeql/javascript-queries 2.5.0; suites <lang>-security-extended.qls
+config            .github/codeql/codeql-config.yml (paths: p2p), build-mode none
+container         python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
+outputs           codeql-python-full.sarif, codeql-javascript-full.sarif

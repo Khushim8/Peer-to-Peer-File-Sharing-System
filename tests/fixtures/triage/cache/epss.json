@@ -1,0 +1,5 @@
+{"CVE-2099-0001": {"epss": 0.01, "percentile": 0.5, "date": "2099-01-01", "fetched": "9999-01-01"},
+ "CVE-2099-0002": {"epss": 0.02, "percentile": 0.6, "date": "2099-01-01", "fetched": "9999-01-01"},
+ "CVE-2099-0003": {"epss": 0.5, "percentile": 0.99, "date": "2099-01-01", "fetched": "9999-01-01"},
+ "CVE-2099-0004": {"epss": 0.001, "percentile": 0.1, "date": "2099-01-01", "fetched": "9999-01-01"},
+ "CVE-2099-0005": {"epss": null, "percentile": null, "date": null, "fetched": "9999-01-01"}}

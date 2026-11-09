@@ -1,0 +1,4 @@
+# Local security tooling and tests. Install into .venv:
+#   python -m venv .venv && .venv/Scripts/python -m pip install -r requirements-dev.txt
+-r requirements-test.txt
+semgrep==1.184.0
