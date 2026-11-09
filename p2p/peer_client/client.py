@@ -6,6 +6,7 @@ import json
 import requests
 import sys
 from blockchain_logger.blockchain_logger import BlockchainLogger
+from safe_paths import resolve_inside
 
 TRACKER_URL = os.getenv("TRACKER_URL", "http://tracker:5000")
 CHUNK_SIZE = 4096
@@ -63,8 +64,8 @@ class PeerClient:
                 file_path = self.files[file_hash]
             else:
                 # fallback: look in /app/files directory
-                file_path = os.path.join(FILES_DIR, file_hash)
-                if not os.path.exists(file_path):
+                file_path = resolve_inside(FILES_DIR, file_hash)
+                if file_path is None or not os.path.isfile(file_path):
                     client_socket.sendall(b"FILE_NOT_FOUND")
                     return
 
@@ -115,6 +116,13 @@ class PeerClient:
                 return
 
             file_name = data['file_name']
+            # The name comes from the tracker, where any client can register one.
+            os.makedirs("downloads", exist_ok=True)
+            download_path = resolve_inside("downloads", file_name)
+            if download_path is None:
+                print(f"❌ Refusing unsafe file name from tracker: {file_name!r}")
+                return
+
             for peer in data['peers']:
                 try:
                     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -128,8 +136,6 @@ class PeerClient:
                         continue
 
                     file_size = int(s.recv(1024).decode().strip())
-                    os.makedirs("downloads", exist_ok=True)
-                    download_path = f"downloads/{file_name}"
 
                     with open(download_path, "wb") as f:
                         received = 0

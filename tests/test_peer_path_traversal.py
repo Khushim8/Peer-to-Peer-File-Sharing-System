@@ -1,9 +1,9 @@
 """Path traversal checks for the peer file server and download path.
 
-These are manual tests, not scanner output: anything they confirm is reported as
+These are manual tests, not scanner output: what they found is reported as
 "manual/custom rule", separately from the tool baseline. Each attack test asserts
-the SAFE behaviour and is xfail(strict=True) until the fix lands, so the fix
-turns them into passing tests (and strict mode fails the suite if one passes early).
+the SAFE behaviour. Until the Phase 4 fix they were xfail(strict=True); they now
+pass and guard against regressions.
 """
 import os
 import socket
@@ -16,8 +16,6 @@ from pathlib import Path
 import pytest
 
 PEER_DIR = Path(__file__).resolve().parents[1] / "p2p" / "peer_client"
-# raises=AssertionError: only the safety assertion may fail; a harness error is a real error.
-UNFIXED = pytest.mark.xfail(strict=True, raises=AssertionError, reason="path traversal not fixed yet (Phase 4)")
 SECRET = b"outside FILES_DIR"
 
 
@@ -88,9 +86,8 @@ def test_client_serves_file_inside_files_dir(peer_modules, layout, monkeypatch):
     assert request(client_handler(client), "shared.txt") == b"FILE_FOUND14\nshared content"
 
 
-# ---------------------------------------------------------------- attacks (safe behaviour, xfail until fixed)
+# ---------------------------------------------------------------- attacks (must be refused)
 
-@UNFIXED
 @pytest.mark.parametrize("kind", TRAVERSALS)
 def test_server_refuses_path_outside_files_dir(peer_modules, layout, monkeypatch, kind):
     server, _ = peer_modules
@@ -100,7 +97,6 @@ def test_server_refuses_path_outside_files_dir(peer_modules, layout, monkeypatch
     assert reply == b"FILE_NOT_FOUND"
 
 
-@UNFIXED
 @pytest.mark.parametrize("kind", TRAVERSALS)
 def test_client_refuses_path_outside_files_dir(peer_modules, layout, monkeypatch, kind):
     _, client = peer_modules
@@ -149,7 +145,6 @@ def test_download_harness_writes_into_downloads(peer_modules, tmp_path, monkeypa
     assert (tmp_path / "downloads" / "ok.txt").read_bytes() == PAYLOAD
 
 
-@UNFIXED
 def test_download_stays_inside_downloads_dir(peer_modules, tmp_path, monkeypatch):
     """The file name comes from the tracker, which any client can set via /register_file."""
     _, client = peer_modules
@@ -159,3 +154,31 @@ def test_download_stays_inside_downloads_dir(peer_modules, tmp_path, monkeypatch
     assert not (tmp_path / "work" / "escaped.txt").exists(), "download wrote outside ./downloads"
     written = [p for p in tmp_path.rglob("*") if p.is_file()]
     assert all(p.resolve().is_relative_to((workdir / "downloads").resolve()) for p in written)
+
+
+# ---------------------------------------------------------------- resolve_inside
+
+@pytest.fixture()
+def safe_paths(monkeypatch):
+    monkeypatch.syspath_prepend(str(PEER_DIR))
+    sys.modules.pop("safe_paths", None)
+    import safe_paths
+    return safe_paths
+
+
+@pytest.mark.parametrize("name", ["", ".", "..", "../x", "a/b", "a\\b", "/etc/passwd", "C:\\x", "x\x00y", None])
+def test_resolve_inside_rejects_non_bare_names(safe_paths, layout, name):
+    assert safe_paths.resolve_inside(str(layout / "files"), name) is None
+
+
+def test_resolve_inside_accepts_bare_name(safe_paths, layout):
+    assert safe_paths.resolve_inside(str(layout / "files"), "shared.txt") == os.path.realpath(layout / "files" / "shared.txt")
+
+
+def test_resolve_inside_rejects_symlink_escape(safe_paths, layout):
+    link = layout / "files" / "link.txt"
+    try:
+        os.symlink(layout / "secret.txt", link)
+    except (OSError, NotImplementedError):
+        pytest.skip("cannot create symlinks here (Windows without privilege)")
+    assert safe_paths.resolve_inside(str(layout / "files"), "link.txt") is None
