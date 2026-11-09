@@ -221,6 +221,14 @@ def test_gitleaks_sarif_is_a_secret():
     assert (f.tool, f.category, f.severity) == ("gitleaks", "secret", "HIGH")
 
 
+def test_custom_semgrep_rules_are_labelled_separately(tmp_path):
+    import json
+    (tmp_path / "semgrep-custom.sarif").write_text(json.dumps(sarif(("p2p/a.py", 3, "open(n)"))))
+    (tmp_path / "semgrep.sarif").write_text(json.dumps(sarif(("p2p/b.py", 3, "open(n)"))))
+    tools = {f.file_or_package: f.tool for f in triage.load_reports(tmp_path, STRIP)}
+    assert tools == {"p2p/a.py": "semgrep-custom", "p2p/b.py": "semgrep"}
+
+
 def test_codeql_hash_used_when_no_snippet():
     [f] = triage.parse_sarif(load("codeql.sarif"), STRIP)
     assert f.fingerprint == "codeql:abc123:1"

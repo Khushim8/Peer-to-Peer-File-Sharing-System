@@ -70,14 +70,35 @@ jobs:
             --config p/default --config p/python --config p/flask \
             --config p/javascript --config p/dockerfile \
             --sarif --output semgrep.sarif p2p
+      # Rules written in .semgrep/ after manual discovery: tested, then run
+      # separately so their results are labelled apart from the registry packs.
+      # Copied into the workspace root so Semgrep does not prefix the rule IDs
+      # with the .semgrep/ directory (matches scripts/run-scans.sh).
+      - name: Custom rules - unit tests
+        run: semgrep --test --metrics=off .semgrep/
+      - name: Custom rules - scan
+        run: |
+          cfg=""
+          for f in .semgrep/*.yaml; do
+            cp "$f" "semgrep-custom-$(basename "$f")"
+            cfg="$cfg --config semgrep-custom-$(basename "$f")"
+          done
+          # shellcheck disable=SC2086
+          semgrep scan --metrics=off --disable-version-check $cfg --sarif --output semgrep-custom.sarif p2p
       - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           sarif_file: semgrep.sarif
           category: semgrep
+      - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: semgrep-custom.sarif
+          category: semgrep-custom
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: scan-semgrep
-          path: semgrep.sarif
+          path: |
+            semgrep.sarif
+            semgrep-custom.sarif
 
   codeql:
     runs-on: ubuntu-24.04
@@ -329,7 +350,7 @@ jobs:
       - name: Check every scanner produced a report
         run: |
           missing=0
-          for f in semgrep.sarif 'codeql-python*.sarif' 'codeql-javascript*.sarif' osv.json gitleaks.sarif gitleaks-archives.sarif \
+          for f in semgrep.sarif semgrep-custom.sarif 'codeql-python*.sarif' 'codeql-javascript*.sarif' osv.json gitleaks.sarif gitleaks-archives.sarif \
                    trivy-fs.json trivy-config.json trivy-image-tracker.json trivy-image-peer.json base-images.json; do
             compgen -G "reports/$f" > /dev/null || { echo "::error::missing report: $f"; missing=1; }
           done

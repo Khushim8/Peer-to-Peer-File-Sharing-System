@@ -188,12 +188,13 @@ def sarif_fingerprint(res: dict, loc: dict) -> str:
     return f"codeql:{codeql}" if codeql else ""
 
 
-def parse_sarif(data: dict, strip: list[str]) -> list[Finding]:
+def parse_sarif(data: dict, strip: list[str], tool_label: str | None = None) -> list[Finding]:
+    """`tool_label` overrides the tool name, e.g. "semgrep-custom" for this repo's own rules."""
     out = []
     for run in data.get("runs", []):
         driver = run["tool"]["driver"]
         name = driver.get("name", "").lower()
-        tool = next((t for t in ("codeql", "semgrep", "gitleaks") if t in name), name or "sarif")
+        tool = tool_label or next((t for t in ("codeql", "semgrep", "gitleaks") if t in name), name or "sarif")
         rules = {r["id"]: r for r in driver.get("rules", [])}
         for ext in run["tool"].get("extensions", []):
             rules.update({r["id"]: r for r in ext.get("rules", [])})
@@ -358,7 +359,10 @@ def load_reports(report_dir: Path, strip: list[str]) -> list[Finding]:
         name = path.name.lower()
         stem = name[:-3] if name.endswith(".gz") else name
         if stem.endswith(".sarif"):
-            findings += parse_sarif(load_json(path), strip)
+            # semgrep-custom*.sarif: rules written in .semgrep/ after manual discovery,
+            # labelled separately from the registry packs.
+            label = "semgrep-custom" if stem.startswith("semgrep-custom") else None
+            findings += parse_sarif(load_json(path), strip, label)
         elif stem.startswith("osv") and stem.endswith(".json"):
             findings += parse_osv(load_json(path), strip)
         elif stem.startswith("gitleaks") and stem.endswith(".json"):

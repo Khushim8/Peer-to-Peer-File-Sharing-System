@@ -6,6 +6,7 @@
 #   scripts/run-scans.sh scan <target-dir> <out-dir> <label>
 #   scripts/run-scans.sh base-images <target-dir> <out-dir> <label>   # only base-images.json
 #   scripts/run-scans.sh codeql <target-dir> <out-dir>                # full CodeQL (Docker)
+#   scripts/run-scans.sh custom-rules <target-dir> <out-dir>          # .semgrep/ rules only
 #
 # <target-dir> must be a clean worktree of the commit being measured (e.g.
 # `git worktree add --detach ../baseline-4ec80e1 4ec80e1`), so dev files in this
@@ -104,6 +105,23 @@ record_base_images() {
     } > "$out/base-images.json"
 }
 
+# Custom Semgrep rules from this repo's .semgrep/ (written after manual
+# discovery, so reported separately from the registry packs) into
+# <out>/semgrep-custom.sarif. Same "../<file>" trick for unprefixed rule IDs.
+semgrep_custom() {
+    local target out f
+    target="$(cd "$1" && pwd)"; out="$2"; mkdir -p "$out"; out="$(cd "$out" && pwd)"
+    local cfg=()
+    trap 'rm -f "$target"/../semgrep-custom-*.yaml' EXIT
+    for f in "$REPO"/.semgrep/*.yaml; do
+        cp "$f" "$target/../semgrep-custom-$(basename "$f")"
+        cfg+=(--config "../semgrep-custom-$(basename "$f")")
+    done
+    (cd "$target" && "$SEMGREP" scan "${cfg[@]}" --metrics=off --disable-version-check         --sarif --output "$out/semgrep-custom.sarif" "$APP_DIR")
+    rm -f "$target"/../semgrep-custom-*.yaml
+    trap - EXIT
+}
+
 scan() {
     local target out label
     target="$(cd "$1" && pwd)"; out="$2"; label="$3"
@@ -141,6 +159,8 @@ scan() {
         --sarif --output "$out/semgrep.sarif" "$APP_DIR"
     rm -f ../semgrep-snapshot-*.yaml
     trap - EXIT
+
+    semgrep_custom "$target" "$out"
 
     # SCA: OSV-Scanner (exit 1 = vulns found, which is not an error here). It
     # always reports absolute source paths, so it runs from the official image
@@ -210,5 +230,6 @@ case "${1:-}" in
     scan) scan "$2" "$3" "$4" ;;
     base-images) record_base_images "$(cd "$2" && pwd)" "$3" "$4" ;;
     codeql) codeql_full "$2" "$3" ;;
-    *) sed -n '2,15p' "$0"; exit 2 ;;
+    custom-rules) semgrep_custom "$2" "$3" ;;
+    *) sed -n '2,16p' "$0"; exit 2 ;;
 esac
