@@ -21,3 +21,21 @@ condition = "AND"
 paths = ['''^security-reports/[^/]+/trivy-image-[^/]+\.json(\.gz)?$''']
 regexTarget = "match"
 regexes = ['''GPG_KEY=[0-9A-F]{40}\b''']
+
+# False positive: Trivy image reports list each CVE's references, and kernel
+# CVEs reference public commits as https://git.kernel.org/stable/c/<sha> or
+# https://git.kernel.org/linus/<sha>. The 40-hex git commit ID matches
+# sourcegraph-access-token. Seen only inside the gzipped tracker report once
+# archive scanning (--max-archive-depth) was enabled: 51 hits, all such URLs.
+# Gitleaks percent-decodes before matching, so the optional " (7.3-rc1)" suffix
+# is accepted encoded or decoded.
+# Narrow on purpose: only sourcegraph-access-token, only a line that is exactly
+# one such URL, and only in Trivy image reports under security-reports/.
+# Recorded in .security/triage.yaml.
+[[allowlists]]
+description = "Public kernel git commit URLs in Trivy image reports"
+targetRules = ["sourcegraph-access-token"]
+condition = "AND"
+paths = ['''^security-reports/[^/]+/trivy-image-[^/]+\.json(\.gz)?$''']
+regexTarget = "line"
+regexes = ['''^\s*"https://git\.kernel\.org/(stable/c|linus)/[0-9a-f]{40}((%20| )(%28|\()[0-9.]+(-rc[0-9]+)?(%29|\)))?",?\s*$''']

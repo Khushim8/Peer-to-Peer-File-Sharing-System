@@ -283,6 +283,16 @@ TRIVY_ECOSYSTEM = {"python-pkg": "pypi", "pip": "pypi", "pipenv": "pypi", "poetr
                    "npm": "npm", "yarn": "npm", "pnpm": "npm", "node-pkg": "npm"}
 
 
+def fs_target(data: dict, target: str, strip: list[str]) -> str:
+    """Repo-relative path of a Trivy fs/config target. Trivy reports targets relative
+    to the scan root, which it records as ArtifactName (e.g. "p2p" in CI, "." locally)."""
+    target = norm_path(target, strip)
+    root = norm_path(data.get("ArtifactName", ""), strip).rstrip("/")
+    if root in ("", ".") or root.startswith("/") or target.startswith(root + "/"):
+        return target
+    return f"{root}/{target}"
+
+
 def parse_trivy(data: dict, name: str, base_images: dict, strip: list[str]) -> list[Finding]:
     image = data.get("ArtifactType") == "container_image"
     tool = "trivy-image" if image else "trivy-config" if "config" in name else "trivy-fs"
@@ -297,7 +307,7 @@ def parse_trivy(data: dict, name: str, base_images: dict, strip: list[str]) -> l
                   "origin will be 'unknown'", file=sys.stderr)
     out = []
     for res in data.get("Results", []):
-        target = data.get("ArtifactName", "") if image else norm_path(res["Target"], strip)
+        target = data.get("ArtifactName", "") if image else fs_target(data, res["Target"], strip)
         os_pkgs = res.get("Class") == "os-pkgs"
         for v in res.get("Vulnerabilities") or []:
             if not image:

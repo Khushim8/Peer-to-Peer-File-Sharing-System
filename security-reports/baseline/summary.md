@@ -1,6 +1,6 @@
 # Triage summary: baseline
 
-Generated 2026-11-06 22:36 UTC by `scripts/triage.py`. Formula: `docs/security/PRIORITIZATION.md`.
+Generated 2026-11-09 17:35 UTC by `scripts/triage.py`. Formula: `docs/security/PRIORITIZATION.md`.
 
 ## Vulnerabilities per tool (unique package + advisory pairs)
 
@@ -16,6 +16,7 @@ Headline unit is a unique (package, advisory) pair per tool: the same advisory o
 
 | Tool | Critical | High | Medium | Low | Unknown | Total |
 |---|---|---|---|---|---|---|
+| codeql | 0 | 0 | 1 | 0 | 0 | 1 |
 | osv-scanner | 2 | 20 | 21 | 6 | 0 | 49 |
 | semgrep | 0 | 2 | 1 | 4 | 0 | 7 |
 | trivy-config | 0 | 2 | 0 | 1 | 0 | 3 |
@@ -30,15 +31,19 @@ A finding is one (package, advisory) pair, or one rule class at one location. *O
 |---|---|---|---|---|---|---|---|---|---|---|
 | P1 | 11 | 7 | 11 | 0 | 0 | 11 | 0 | 0 | 11 | 0 |
 | P2 | 3791 | 1873 | 3791 | 0 | 22 | 3766 | 3 | 0 | 3142 | 7 |
-| P3 | 9906 | 6529 | 9906 | 5 | 27 | 9873 | 1 | 0 | 8215 | 16 |
+| P3 | 9907 | 6529 | 9907 | 6 | 27 | 9873 | 1 | 0 | 8215 | 16 |
 
-Deduplicated findings: 13708 (29 reported by more than one tool). Triaged out: 0.
+Deduplicated findings: 13709 (29 reported by more than one tool). Triaged out: 0.
 
 ## Enrichment
 
 - CVEs: 8352, with an EPSS score: 8349 (EPSS dates: 2026-11-06)
 - CISA KEV catalog: 2026.11.06 (released 2026-11-06T19:44:45.1797Z)
 - KEV matches: 7
+
+## Triage file notes
+
+- matched nothing: generic-api-key
 
 ## New P1 findings
 

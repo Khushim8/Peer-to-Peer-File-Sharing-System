@@ -16,13 +16,25 @@ The counts below are read straight from the files in this folder. They are raw t
 |---|---|
 | `semgrep.sarif` | 8 results: 3 error, 1 warning, 4 note |
 | `osv.json` | 258 advisory entries, 141 groups summed over 3 manifests, 49 unique package + advisory-group pairs (by OSV `max_severity`: 2 ≥ 9.0, 20 at 7.0–8.9, 21 at 4.0–6.9, 6 below 4.0) |
-| `gitleaks.json` | 0 (1 commit scanned) |
+| `gitleaks.json` | 0 (1 commit scanned). `run-scans.sh` now adds `--max-archive-depth 2`; `4ec80e1` contains no archives, so that cannot change this result. |
+| `codeql-python.sarif`, `codeql-javascript.sarif` | 1 and 0 (from CI; see below) |
 | `trivy-fs.json` | 6 vulnerabilities (6 MEDIUM); 3 misconfigurations (2 HIGH, 1 LOW); 0 secrets |
 | `trivy-config.json` | 3 misconfigurations (2 HIGH, 1 LOW) |
 | `trivy-image-tracker.json.gz` | 13,645 vulnerability entries (235 CRITICAL, 2,409 HIGH, 7,669 MEDIUM, 3,178 LOW, 154 UNKNOWN); 0 secrets |
 | `trivy-image-peer.json` | 524 vulnerability entries (6 CRITICAL, 137 HIGH, 215 MEDIUM, 163 LOW, 3 UNKNOWN); 0 secrets |
 
 Trivy image counts are one entry per (installed package, vulnerability) pair, so one CVE in a source package that ships several binary packages is counted several times. Almost all of them are Debian OS packages: the tracker uses the full `python:3.9` image with `build-essential`.
+
+## CodeQL baseline (from CI)
+
+CodeQL only runs on GitHub, so its baseline comes from the first workflow run: run 42339552357 (`pull_request`, PR #1, head `8086522`, started 2026-11-07 04:41 UTC). `git diff 4ec80e1 8086522 -- p2p` is empty, so the app code analysed is exactly the baseline's. CodeQL 2.27.4, `security-extended`, `build-mode: none`, paths `p2p/`. The SARIFs are copied unchanged from the run's artifacts.
+
+| File | Language | Results |
+|---|---|---|
+| `codeql-python.sarif` | python | **1**: `py/bind-socket-all-network-interfaces`, `p2p/peer_client/server.py:34` (security-severity 6.5) |
+| `codeql-javascript.sarif` | javascript-typescript | **0**. Extraction failed for `p2p/pacakage.json` ("Unexpected token": the file is invalid JSON). The only JavaScript is the 3 Truffle config and migration files. |
+
+**Path traversal:** CodeQL did **not** flag it. `py/path-injection` was in the query set, with no result. This is not conclusive: the run used `"incrementalMode": "diff-informed"`, which on pull requests can limit path queries to code the PR changes, and this PR changes no app code. A full, non-PR analysis is needed to settle it. Separately, CodeQL may not model `socket.recv()` as untrusted input at all. The traversal is confirmed by `tests/test_peer_path_traversal.py`, reported as manual.
 
 ## Coverage gaps (what the tools did not see)
 

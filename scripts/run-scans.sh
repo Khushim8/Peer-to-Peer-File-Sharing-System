@@ -148,7 +148,8 @@ scan() {
         > "$out/osv.json" || [ $? -eq 1 ]
 
     # Secrets: Gitleaks over all history reachable from the target commit; secrets redacted in the report
-    "$TOOLS/gitleaks" git . --log-opts="$(git rev-parse HEAD)" \
+    # --max-archive-depth: committed reports are gzipped, and gitleaks skips archives by default.
+    "$TOOLS/gitleaks" git . --log-opts="$(git rev-parse HEAD)" --max-archive-depth 2 \
         --redact --report-format json --report-path "$out/gitleaks.json" --exit-code 0
 
     # Container and IaC: Trivy

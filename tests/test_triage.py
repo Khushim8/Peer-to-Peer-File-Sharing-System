@@ -104,6 +104,16 @@ def test_trivy_config_skips_passed_checks():
     assert [(f.tool, f.category, f.rule_or_cve) for f in fs] == [("trivy-config", "iac", "DS-0002")]
 
 
+def test_trivy_fs_targets_are_repo_relative_whatever_the_scan_root():
+    local = triage.parse_trivy(load("trivy-config.json"), "trivy-config.json", {}, STRIP)   # ArtifactName "."
+    ci_report = load("trivy-config.json")
+    ci_report["ArtifactName"] = "p2p"                           # CI: scan-ref p2p
+    ci_report["Results"][0]["Target"] = "peer_client/Dockerfile"
+    ci = triage.parse_trivy(ci_report, "trivy-config.json", {}, STRIP)
+    assert ci[0].file_or_package == local[0].file_or_package == "p2p/peer_client/Dockerfile"
+    assert ci[0].id == local[0].id
+
+
 def test_gitleaks():
     [f] = triage.parse_gitleaks(load("gitleaks.json"), STRIP)
     assert (f.category, f.rule_or_cve, f.file_or_package, f.line_or_version) == ("secret", "generic-api-key", "p2p/config.py", "4")

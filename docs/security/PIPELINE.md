@@ -37,6 +37,32 @@ Phase 5 before/after numbers come from the local method, not from CI.
 
 Because CI Gitleaks scans the pull request's commits, it also scans the committed scanner reports, which the local baseline never saw. The first CI run (42339552357) flagged 2 `generic-api-key` hits in `security-reports/baseline/trivy-image-peer.json`. Both were the official Python image's public release-signing key fingerprint (`ENV GPG_KEY=…`), copied in by Trivy. `.gitleaks.toml` allowlists exactly that pattern, only in Trivy image reports, and `.security/triage.yaml` records why. The allowlist was tested to still flag the same value in app code or in other reports, other key names in the same report, and non-fingerprint `GPG_KEY` values. These hits are not part of the Gitleaks baseline count (0), which covers the app at `4ec80e1`.
 
+### Secrets inside compressed reports
+
+Gitleaks skips archives unless given `--max-archive-depth`, so `trivy-image-tracker.json.gz` was a blind spot. gitleaks-action hard-codes its arguments, so the `gitleaks` job adds a second step: the same Gitleaks binary (8.30.1) and config, running `gitleaks dir security-reports --max-archive-depth 2`. Its output is `gitleaks-archives.sarif`. Compressed files only occur under `security-reports/`. Locally, `run-scans.sh` passes `--max-archive-depth 2` to `gitleaks git`.
+
+Turning it on found 53 hits inside the gzipped tracker report:
+- **2** were the same `GPG_KEY` fingerprint, already covered by the first allowlist entry.
+- **51** were `sourcegraph-access-token` matches on public kernel commit URLs (`git.kernel.org/stable/c/<sha>`, `/linus/<sha>`) in Trivy's CVE references. Each matched line was checked: all 51 are exactly such a URL.
+
+A second allowlist entry covers only that rule, only lines that are exactly one such URL, and only Trivy image reports. Gitleaks percent-decodes before matching, so the entry accepts the URL's optional ` (7.3-rc1)` suffix encoded or decoded. It was tested to still flag the same URL in app code or another report, a bare 40-hex value in the same report, and a URL line with extra content. With both entries, the branch commits and `security-reports/` scan clean at archive depth 0, 1 and 2.
+
+### CodeQL in pull request runs
+
+On pull requests, CodeQL ran with `"incrementalMode": "diff-informed"`, which can limit path queries (such as `py/path-injection`) to code the pull request changes. A PR that does not touch `p2p/` can therefore miss findings that a full analysis would report, so a clean PR result is not proof of absence. The JavaScript extractor also fails on the invalid `p2p/pacakage.json`.
+
+## GitHub alert counts vs triage counts
+
+GitHub's code-scanning total (3,062 open on PR #1 for run 42339552357; see `security-reports/baseline/GITHUB_UI_COUNTS.md`) and triage's count for the same run (13,715 deduplicated findings, in the run's `triage` artifact `summary.md`) measure different things. Neither is wrong:
+
+- **Severity filter:** code scanning gets the image SARIF with only Critical and High; triage reads every severity from the JSON.
+- **Unit of counting:** GitHub makes one alert per rule (advisory) and location per upload category, and its location fingerprints group results differently from triage's (package, advisory) pairs. For example, several binary packages carrying one CVE may share a location.
+- **No cross-tool or cross-image deduplication in GitHub:** each SARIF category (`semgrep`, `/language:python`, `osv-scanner`, `gitleaks`, `trivy-fs`, `trivy-image-tracker`, `trivy-image-peer`) is counted on its own. The same CVE in both images, or from OSV and Trivy, is several alerts. Triage merges them.
+- **Different OSV and Trivy-fs inputs:** OSV's SARIF has one result per advisory per manifest location; triage merges aliases across manifests.
+- **State:** GitHub counts open alerts, which change as alerts are fixed, dismissed or closed by later runs. Triage counts what one set of reports contains.
+
+The report's before/after numbers come from triage on the raw reports. GitHub's numbers are recorded only as a cross-check, by tool, in `GITHUB_UI_COUNTS.md`.
+
 ## Known gaps
 
 - Trivy does not detect the tracker's lowercase `dockerfile` (see `security-reports/baseline/NOTES.md`).

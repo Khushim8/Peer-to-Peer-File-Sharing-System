@@ -20,3 +20,8 @@ decisions:
     file_or_package: security-reports/*/trivy-image-*.json*
     status: false_positive
     reason: "The GPG_KEY value (fingerprint E3FF 2839 C048 B25C 084D EBE9 B269 95E3 1025 0568) copied into Trivy image reports from the official python:3.9 images is the public OpenPGP fingerprint of the Python 3.8/3.9 release manager (python.org/downloads/metadata/pgp), not a credential. Flagged in CI run 42339552357."
+  # Also allowlisted in .gitleaks.toml (narrowly); kept here as the justification.
+  - rule_or_cve: sourcegraph-access-token
+    file_or_package: security-reports/*/trivy-image-*.json*
+    status: false_positive
+    reason: "Lines that are exactly a public kernel commit URL (git.kernel.org/stable/c/<sha> or /linus/<sha>) in Trivy's CVE references; the 40-hex git commit ID matches the rule. 51 hits, all such URLs, inside the gzipped tracker report once archive scanning was enabled (2026-11-09)."
