@@ -27,6 +27,10 @@ export SEMGREP_SEND_METRICS=off
 export PYTHONUTF8=1
 
 SEMGREP_PACKS="p/default p/python p/flask p/javascript p/dockerfile"
+# Scan scope for SAST/SCA/IaC: the application only, as in CI, so dev files
+# (tests/, scripts/, requirements-dev.txt, .github/, security-reports/) are never
+# counted. Gitleaks still scans the full history of the target commit.
+APP_DIR=p2p
 OSV_IMAGE="ghcr.io/google/osv-scanner:v2.7.0@sha256:4f3b7e2c64b9d38a5febc5a7e4a3dfef1d1362f726dea7a2ef4762b46469fcd0"
 
 # Path form Docker accepts for bind mounts (C:/... under Git Bash, unchanged elsewhere).
@@ -134,7 +138,7 @@ scan() {
         cfg+=(--config "$f")
     done
     "$SEMGREP" scan "${cfg[@]}" --metrics=off --disable-version-check \
-        --sarif --output "$out/semgrep.sarif" .
+        --sarif --output "$out/semgrep.sarif" "$APP_DIR"
     rm -f ../semgrep-snapshot-*.yaml
     trap - EXIT
 
@@ -145,7 +149,7 @@ scan() {
         -v "$(native_path "$target"):/src:ro" \
         -v "$(native_path "$OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY"):/osv-db" \
         -e OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY=/osv-db \
-        "$OSV_IMAGE" scan source --offline-vulnerabilities -r /src --format json \
+        "$OSV_IMAGE" scan source --offline-vulnerabilities -r "/src/$APP_DIR" --format json \
         > "$out/osv.json" || [ $? -eq 1 ]
 
     # Secrets: Gitleaks over all history reachable from the target commit; secrets redacted in the report
@@ -156,8 +160,8 @@ scan() {
     # Container and IaC: Trivy
     local t=("$TOOLS/trivy" --cache-dir "$TRIVY_CACHE")
     "${t[@]}" fs --skip-db-update --skip-check-update --scanners vuln,secret,misconfig \
-        --format json --output "$out/trivy-fs.json" .
-    "${t[@]}" config --skip-check-update --format json --output "$out/trivy-config.json" .
+        --format json --output "$out/trivy-fs.json" "$APP_DIR"
+    "${t[@]}" config --skip-check-update --format json --output "$out/trivy-config.json" "$APP_DIR"
 
     # Pull each base image first so its layers can be recorded (BuildKit does
     # not keep the base tagged locally); triage uses them to split base-image

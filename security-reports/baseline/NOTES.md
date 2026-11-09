@@ -73,6 +73,12 @@ The pre-CodeQL total is **13,708** (P1 11, P2 3,791, P3 9,906). CodeQL adds 1 P3
 - **Duplicated manifests.** `web3==6.9.0` is pinned in three `requirements.txt` files, so OSV and Trivy fs report the same advisories up to three times.
 - **Database dates.** Trivy DB `UpdatedAt 2026-11-06 18:59:52 UTC`; OSV PyPI database downloaded 2026-11-06 20:11:30 UTC. OSV's transitive resolution also queries the network at scan time, so it is not fully pinned by the offline database.
 
+## Scan scope change (2026-11-09)
+
+The baseline was scanned with the whole worktree as the root. At `4ec80e1` that is just `p2p/` and a README. Later commits also contain `tests/` (including fake scanner reports used as fixtures), `scripts/`, `.github/`, `security-reports/` and dev requirements files. A whole-worktree scan of the class 1 commit (`9e880eb`) picked up 6 Semgrep results in `.github/` and `scripts/`, plus `requirements-dev.txt` and `requirements-test.txt` in OSV-Scanner. So `run-scans.sh` now scopes Semgrep, OSV-Scanner and Trivy fs/config to `p2p/`, as CI does. Gitleaks still scans the target's full history.
+
+Rescanning `4ec80e1` with the scoped script (same DB and rule snapshots) gave **exactly the same 13,709 finding IDs** as `findings.csv` here: 0 removed, 0 added. The baseline numbers are unaffected.
+
 ## How the baseline run was made reproducible
 
 These are scanning-method details, not changes to the app:
