@@ -253,7 +253,7 @@ jobs:
           output: reports/trivy-config.json
       - name: Build images (base images pulled first so their layers can be recorded)
         run: |
-          docker pull -q "$(awk 'toupper($1)=="FROM"{print $2; exit}' p2p/Tracker_server/dockerfile)"
+          docker pull -q "$(awk 'toupper($1)=="FROM"{print $2; exit}' p2p/Tracker_server/Dockerfile)"
           docker pull -q "$(awk 'toupper($1)=="FROM"{print $2; exit}' p2p/peer_client/Dockerfile)"
           docker build -q -t p2p-tracker:ci p2p/Tracker_server
           docker build -q -t p2p-peer:ci p2p/peer_client

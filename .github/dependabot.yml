@@ -17,6 +17,9 @@ updates:
     schedule:
       interval: weekly
 
+  # Directory-based: Dependabot reads the Dockerfile in each directory.
+  # p2p/Tracker_server/Dockerfile was named "dockerfile" before Phase 4. Both
+  # base images are pinned by digest, so updates arrive as digest bumps.
   - package-ecosystem: docker
     directories:
       - /p2p/Tracker_server

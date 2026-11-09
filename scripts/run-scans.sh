@@ -87,13 +87,17 @@ record_versions() {
 
 base_image_of() { awk 'toupper($1) == "FROM" { print $2; exit }' "$1"; }
 
+# Tracked Dockerfile in a directory of the git checkout at $1 (`dockerfile` at
+# 4ec80e1, `Dockerfile` later). Asks git, because Windows paths are case-insensitive.
+dockerfile_in() { git -C "$1" ls-files "$2" | grep -iE '/dockerfile$' | head -1; }
+
 # Write <out>/base-images.json: for each scanned image, its Dockerfile's base
 # image, the base digest, and the base's layer diff IDs.
 record_base_images() {
     local target="$1" out="$2" label="$3" img df base first=1
     {
         echo "{"
-        for pair in "p2p-tracker:$label=p2p/Tracker_server/dockerfile" "p2p-peer:$label=p2p/peer_client/Dockerfile"; do
+        for pair in "p2p-tracker:$label=$(dockerfile_in "$target" p2p/Tracker_server)"                     "p2p-peer:$label=$(dockerfile_in "$target" p2p/peer_client)"; do
             img="${pair%%=*}"; df="${pair#*=}"; base="$(base_image_of "$target/$df")"
             [ $first -eq 1 ] || echo ","; first=0
             printf '  "%s": {"dockerfile": "%s", "base": "%s", "base_digest": "%s", "base_diff_ids": %s}' \
@@ -186,8 +190,8 @@ scan() {
     # Pull each base image first so its layers can be recorded (BuildKit does
     # not keep the base tagged locally); triage uses them to split base-image
     # packages from what the Dockerfile adds.
-    docker pull -q "$(base_image_of p2p/Tracker_server/dockerfile)" > /dev/null
-    docker pull -q "$(base_image_of p2p/peer_client/Dockerfile)" > /dev/null
+    docker pull -q "$(base_image_of "$(dockerfile_in . p2p/Tracker_server)")" > /dev/null
+    docker pull -q "$(base_image_of "$(dockerfile_in . p2p/peer_client)")" > /dev/null
     docker build -q -t "p2p-tracker:$label" p2p/Tracker_server
     docker build -q -t "p2p-peer:$label" p2p/peer_client
     record_base_images "$target" "$out" "$label"
